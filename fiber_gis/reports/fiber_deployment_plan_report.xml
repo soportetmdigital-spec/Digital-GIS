@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_fiber_deployment_plan" model="report.paperformat">
+        <field name="name">Fiber GIS plan de despliegue</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">4</field>
+        <field name="margin_bottom">4</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">110</field>
+    </record>
+
+    <record id="action_report_fiber_deployment_plan_v2" model="ir.actions.report">
+        <field name="name">Plan de despliegue</field>
+        <field name="model">fiber.gis.deployment.plan</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fiber_gis.report_fiber_deployment_plan_document_v2</field>
+        <field name="report_file">fiber_gis.report_fiber_deployment_plan_document_v2</field>
+        <field name="print_report_name">'Plan de despliegue - %s' % (object.name or '')</field>
+        <field name="paperformat_id" ref="fiber_gis.paperformat_fiber_deployment_plan"/>
+    </record>
+
+    <template id="report_fiber_deployment_plan_document_v2">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="data" t-value="doc._get_report_data()"/>
+                <div class="page" style="font-family:Arial,sans-serif;font-size:8px;line-height:1.15;margin:0;padding:0;">
+                    <style>
+                        .plan-title { font-size: 15px; font-weight: 700; margin: 0 0 3px 0; }
+                        .plan-meta { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+                        .plan-meta td { padding: 1px 10px 1px 0; white-space: nowrap; }
+                        .plan-summary { width: 100%; border-collapse: separate; border-spacing: 4px 0; margin: 3px 0 4px -4px; }
+                        .plan-summary td { border: 1px solid #9ca3af; padding: 3px 5px; background: #f8fafc; }
+                        .plan-section { font-size: 10px; font-weight: 700; margin: 5px 0 2px 0; }
+                        .plan-table { width: 100%; border-collapse: collapse; font-size: 7.3px; }
+                        .plan-table th, .plan-table td { border: 1px solid #9ca3af; padding: 2px 3px; vertical-align: top; }
+                        .plan-table th { background: #f1f5f9; font-weight: 700; white-space: nowrap; }
+                        .plan-warning { color: #991b1b; font-weight: 700; }
+                        .plan-legend { margin-top: 3px; font-size: 7px; }
+                        .plan-legend span { display: inline-block; margin-right: 12px; }
+                    </style>
+                    <div class="plan-title">Plan de despliegue: <span t-esc="doc.name"/></div>
+                    <table class="plan-meta">
+                        <tr>
+                            <td><strong>Estado:</strong> <span t-esc="data.get('state')"/></td>
+                            <td><strong>Zona:</strong> <span t-esc="doc.zone or '-'"/></td>
+                            <td><strong>Responsable:</strong> <span t-esc="doc.responsible_id.name or '-'"/></td>
+                            <td><strong>Inicio:</strong> <span t-field="doc.planned_start"/></td>
+                            <td><strong>Fin:</strong> <span t-field="doc.planned_end"/></td>
+                        </tr>
+                    </table>
+                    <table class="plan-summary">
+                        <tr>
+                            <td><strong>Elementos nuevos</strong><br/><span t-esc="data.get('node_count')"/></td>
+                            <td><strong>Conexiones existentes</strong><br/><span t-esc="data.get('connection_node_count')"/></td>
+                            <td><strong>Cables</strong><br/><span t-esc="data.get('cable_count')"/></td>
+                            <td><strong>Metros dibujados</strong><br/><span t-esc="'%.1f m' % data.get('estimated_length_m')"/></td>
+                            <td><strong>Reserva</strong><br/><span t-esc="'%.1f' % doc.reserve_percent"/> %</td>
+                            <td><strong>Metros estimados</strong><br/><span t-esc="'%.1f m' % data.get('estimated_with_reserve_m')"/></td>
+                            <td t-att-class="'plan-warning' if data.get('missing_coordinates_count') else ''">
+                                <strong>Sin coordenadas</strong><br/><span t-esc="data.get('missing_coordinates_count')"/>
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="plan-section">Plano real del trabajo</div>
+                    <t t-out="doc._get_plan_map_svg()"/>
+                    <div class="plan-legend">
+                        <span><strong>L&#xED;nea continua:</strong> fachada</span>
+                        <span><strong>L&#xED;nea discontinua:</strong> a&#xE9;reo</span>
+                        <span><strong>L&#xED;nea de puntos:</strong> subterr&#xE1;neo</span>
+                        <span><strong>C&#xED;rculos numerados:</strong> elementos y cajas</span>
+                    </div>
+                    <div t-if="data.get('direct_cable_count')" class="plan-warning" style="margin-top:3px;">
+                        Aviso: <span t-esc="data.get('direct_cable_count')"/> cable(s) usan una l&#xED;nea directa entre elementos y a&#xFA;n no tienen un trazado detallado.
+                    </div>
+                </div>
+
+                <div class="page" style="font-family:Arial,sans-serif;font-size:8px;line-height:1.15;margin:0;padding:0;">
+                    <div class="plan-title">Detalle de campo: <span t-esc="doc.name"/></div>
+                    <div class="plan-section">Elementos y ubicaciones</div>
+                    <table class="plan-table">
+                        <thead>
+                            <tr>
+                                <th style="width:4%;">N.</th>
+                                <th style="width:18%;">Elemento</th>
+                                <th style="width:13%;">Tipo</th>
+                                <th style="width:12%;">Funci&#xF3;n</th>
+                                <th>Direcci&#xF3;n</th>
+                                <th style="width:19%;">Coordenadas</th>
+                                <th style="width:9%;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="data.get('nodes')" t-as="node">
+                                <td><span t-esc="node.get('sequence')"/></td>
+                                <td><span t-esc="node.get('name')"/></td>
+                                <td><span t-esc="node.get('type')"/></td>
+                                <td><span t-esc="node.get('role')"/></td>
+                                <td><span t-esc="node.get('address') or '-'"/></td>
+                                <td><span t-esc="node.get('coordinates')"/></td>
+                                <td><span t-esc="node.get('state')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="plan-section">Cables y trazados</div>
+                    <table class="plan-table">
+                        <thead>
+                            <tr>
+                                <th style="width:15%;">Cable</th>
+                                <th style="width:14%;">Origen</th>
+                                <th style="width:14%;">Destino</th>
+                                <th style="width:6%;">Fibras</th>
+                                <th style="width:17%;">Tipolog&#xED;a</th>
+                                <th style="width:13%;">Instalaci&#xF3;n</th>
+                                <th style="width:8%;">Longitud</th>
+                                <th>Trazado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="data.get('cables')" t-as="cable">
+                                <td><span t-esc="cable.get('name')"/></td>
+                                <td><span t-esc="cable.get('from')"/></td>
+                                <td><span t-esc="cable.get('to')"/></td>
+                                <td><span t-esc="cable.get('fibers')"/></td>
+                                <td><span t-esc="cable.get('topology')"/></td>
+                                <td><span t-esc="cable.get('route')"/></td>
+                                <td><span t-esc="'%.1f m' % cable.get('length_m')"/></td>
+                                <td><span t-esc="cable.get('drawing')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="plan-section">Resumen de cable para preparar</div>
+                    <table class="plan-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th style="width:8%;">Fibras</th>
+                                <th style="width:8%;">Tubos</th>
+                                <th style="width:9%;">Tramos</th>
+                                <th style="width:14%;">Metros dibujados</th>
+                                <th style="width:16%;">Metros con reserva</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="data.get('materials')" t-as="material">
+                                <td><span t-esc="material.get('type')"/></td>
+                                <td><span t-esc="material.get('fibers')"/></td>
+                                <td><span t-esc="material.get('tubes')"/></td>
+                                <td><span t-esc="material.get('quantity')"/></td>
+                                <td><span t-esc="'%.1f m' % material.get('length_m')"/></td>
+                                <td><strong t-esc="'%.1f m' % material.get('reserve_length_m')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="plan-section">Alcance y observaciones</div>
+                    <div style="white-space:pre-wrap;border:1px solid #9ca3af;min-height:45px;padding:4px;">
+                        <span t-esc="doc.description or ''"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

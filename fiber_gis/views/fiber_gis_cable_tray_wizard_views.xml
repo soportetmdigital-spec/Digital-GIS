@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_cable_tray_wizard_form" model="ir.ui.view">
+        <field name="name">fiber.gis.cable.tray.wizard.form</field>
+        <field name="model">fiber.gis.cable.tray.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Registrar cable en bandeja" class="o_fiber_tray_wizard_form">
+                <sheet>
+                    <field name="source_line_id" invisible="1"/>
+                    <field name="source_fiber_id" invisible="1"/>
+                    <field name="source_info_html" nolabel="1" readonly="1" invisible="not source_line_id"/>
+                    <group>
+                        <field name="operation" widget="radio"/>
+                        <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="available_cable_ids" invisible="1"/>
+                        <field name="available_fiber_ids" invisible="1"/>
+                        <field name="available_other_fiber_ids" invisible="1"/>
+                        <field name="available_drop_cable_ids" invisible="1"/>
+                        <field name="available_drop_fiber_ids" invisible="1"/>
+                        <field name="available_splitter_ids" invisible="1"/>
+                        <field name="available_splitter_output_ids" invisible="1"/>
+                        <field name="available_target_splitter_output_ids" invisible="1"/>
+                        <field name="drop_cable_id" invisible="1"/>
+                        <field name="drop_cable_topology" invisible="1"/>
+                        <field name="drop_fiber_ids" invisible="1"/>
+                        <field name="customer_drop_source" widget="radio" invisible="operation != 'customer_drop'"/>
+                    </group>
+                    <group col="2" class="o_fiber_tray_wizard_cables">
+                        <group class="o_fiber_tray_wizard_half">
+                            <field name="cable_id" domain="[('id', 'in', available_cable_ids)]" readonly="operation == 'customer_drop' and customer_drop_source == 'splitter'" required="not (operation == 'customer_drop' and customer_drop_source == 'splitter')"/>
+                            <field name="cable_topology" readonly="1"/>
+                            <field name="customer_splitter_id" domain="[('id', 'in', available_splitter_ids)]" invisible="operation != 'customer_drop' or customer_drop_source != 'splitter'"/>
+                            <field name="customer_splitter_output_id" domain="[('id', 'in', available_splitter_output_ids)]" invisible="operation != 'customer_drop' or customer_drop_source != 'splitter'"/>
+                        </group>
+                        <group class="o_fiber_tray_wizard_half" invisible="operation not in ('fusion', 'splitter_fusion', 'customer_drop')">
+                            <field name="other_cable_id" domain="[('id', 'in', available_cable_ids), ('id', '!=', cable_id)]" invisible="operation != 'fusion'"/>
+                            <field name="other_cable_topology" readonly="1" invisible="operation != 'fusion'"/>
+                            <field name="target_splitter_id" domain="[('id', 'in', available_splitter_ids)]" invisible="operation != 'splitter_fusion'"/>
+                            <field name="target_splitter_output_id" domain="[('id', 'in', available_target_splitter_output_ids)]" invisible="operation != 'splitter_fusion'"/>
+                            <field name="customer_id" invisible="operation != 'customer_drop'" required="operation == 'customer_drop'"/>
+                            <field name="customer_address" invisible="operation != 'customer_drop'" placeholder="Direcci&#243;n completa del cliente"/>
+                        </group>
+                    </group>
+                    <group col="2" class="o_fiber_tray_wizard_cables">
+                        <group class="o_fiber_tray_wizard_half">
+                            <field name="tray_id" domain="[('node_id', '=', node_id)]"/>
+                            <field name="pass_tray_id" domain="[('node_id', '=', node_id)]" invisible="operation != 'pass'"/>
+                            <field name="splitter_ratio" invisible="operation != 'splitter'"/>
+                            <field name="splitter_name" invisible="operation != 'splitter'" placeholder="Se genera automaticamente si se deja vacio"/>
+                        </group>
+                        <group class="o_fiber_tray_wizard_half">
+                            <field name="other_tray_id" domain="[('node_id', '=', node_id)]" placeholder="Si se deja vacio usa la bandeja principal" invisible="operation != 'fusion'"/>
+                            <field name="splitter_type" invisible="operation != 'splitter'"/>
+                            <field name="splitter_connector_type" invisible="operation != 'splitter'"/>
+                            <field name="splitter_loss_db" invisible="operation != 'splitter'"/>
+                            <field name="customer_latitude" invisible="operation != 'customer_drop'"/>
+                            <field name="customer_longitude" invisible="operation != 'customer_drop'"/>
+                            <field name="node_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group invisible="operation in ('fusion', 'customer_drop')" class="o_fiber_tray_wizard_fibers" col="1">
+                        <field name="selected_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                    </group>
+                    <group invisible="operation != 'fusion'" class="o_fiber_tray_wizard_fibers o_fiber_tray_wizard_fusion" col="2">
+                        <group string="Cable principal" class="o_fiber_tray_wizard_half" col="1">
+                            <field name="fusion_input_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                        </group>
+                        <group string="Otro cable" class="o_fiber_tray_wizard_half" col="1">
+                            <field name="fusion_output_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_other_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                        </group>
+                    </group>
+                    <group invisible="operation != 'customer_drop' or customer_drop_source != 'fiber'" class="o_fiber_tray_wizard_fibers" col="1">
+                        <group string="Fibra de origen" class="o_fiber_tray_wizard_half" col="1" invisible="customer_drop_source != 'fiber'">
+                            <field name="selected_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                        </group>
+                    </group>
+                    <group string="Compatibilidad" invisible="1">
+                        <field name="from_fiber"/>
+                        <field name="to_fiber"/>
+                        <field name="other_from_fiber"/>
+                    </group>
+                    <field name="operation_preview_html" nolabel="1" readonly="1"/>
+                    <field name="notes" placeholder="Observaciones del trabajo"/>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object" string="Registrar" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_cable_tray_confirm_wizard_form" model="ir.ui.view">
+        <field name="name">fiber.gis.cable.tray.confirm.wizard.form</field>
+        <field name="model">fiber.gis.cable.tray.confirm.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Confirmar uso de fibras">
+                <sheet>
+                    <field name="tray_wizard_id" invisible="1"/>
+                    <field name="return_model" invisible="1"/>
+                    <field name="return_res_id" invisible="1"/>
+                    <field name="warning_html" nolabel="1" readonly="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirmar y registrar" class="btn-primary"/>
+                    <button string="Volver" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

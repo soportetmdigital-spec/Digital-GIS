@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="node_category_site" model="fiber.gis.node.category">
+        <field name="name">Sitio tecnico</field>
+        <field name="code">SITE</field>
+        <field name="node_kind">site</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="node_category_olt" model="fiber.gis.node.category">
+        <field name="name">OLT</field>
+        <field name="code">OLT</field>
+        <field name="node_kind">olt</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="node_category_odf" model="fiber.gis.node.category">
+        <field name="name">ODF</field>
+        <field name="code">ODF</field>
+        <field name="node_kind">odf</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="node_category_cabinet" model="fiber.gis.node.category">
+        <field name="name">Armario</field>
+        <field name="code">CABINET</field>
+        <field name="node_kind">cabinet</field>
+        <field name="sequence">40</field>
+    </record>
+    <record id="node_category_cto" model="fiber.gis.node.category">
+        <field name="name">CTO</field>
+        <field name="code">CTO</field>
+        <field name="node_kind">cto</field>
+        <field name="sequence">50</field>
+    </record>
+    <record id="node_category_box" model="fiber.gis.node.category">
+        <field name="name">Caja terminal</field>
+        <field name="code">BOX</field>
+        <field name="node_kind">box</field>
+        <field name="sequence">60</field>
+    </record>
+    <record id="node_category_closure" model="fiber.gis.node.category">
+        <field name="name">Caja de registro</field>
+        <field name="code">CLOSURE</field>
+        <field name="node_kind">closure</field>
+        <field name="sequence">70</field>
+    </record>
+    <record id="node_category_manhole" model="fiber.gis.node.category">
+        <field name="name">Arqueta</field>
+        <field name="code">MANHOLE</field>
+        <field name="node_kind">manhole</field>
+        <field name="sequence">80</field>
+    </record>
+    <record id="node_category_pole" model="fiber.gis.node.category">
+        <field name="name">Poste</field>
+        <field name="code">POLE</field>
+        <field name="node_kind">pole</field>
+        <field name="sequence">90</field>
+    </record>
+    <record id="node_category_splitter" model="fiber.gis.node.category">
+        <field name="name">Splitter</field>
+        <field name="code">SPLITTER</field>
+        <field name="node_kind">splitter</field>
+        <field name="sequence">100</field>
+    </record>
+    <record id="node_category_rack" model="fiber.gis.node.category">
+        <field name="name">Rack</field>
+        <field name="code">RACK</field>
+        <field name="node_kind">rack</field>
+        <field name="sequence">110</field>
+    </record>
+    <record id="node_category_ont" model="fiber.gis.node.category">
+        <field name="name">ONT/CPE</field>
+        <field name="code">ONT</field>
+        <field name="node_kind">ont</field>
+        <field name="sequence">120</field>
+    </record>
+    <record id="node_category_other" model="fiber.gis.node.category">
+        <field name="name">Otro</field>
+        <field name="code">OTHER</field>
+        <field name="node_kind">other</field>
+        <field name="sequence">999</field>
+    </record>
+</odoo>

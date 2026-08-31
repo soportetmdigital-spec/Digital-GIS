@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_asset_type_list" model="ir.ui.view">
+        <field name="name">fiber.gis.asset.type.list</field>
+        <field name="model">fiber.gis.asset.type</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="category"/>
+                <field name="node_category_ids" widget="many2many_tags" optional="show"/>
+                <field name="color" widget="fiber_color"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_asset_type_form" model="ir.ui.view">
+        <field name="name">fiber.gis.asset.type.form</field>
+        <field name="model">fiber.gis.asset.type</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="category"/>
+                        <field name="node_category_ids" widget="many2many_tags" invisible="category != 'node'" options="{'no_quick_create': True}"/>
+                        <field name="sequence"/>
+                        <field name="color" widget="fiber_color"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_asset_type" model="ir.actions.act_window">
+        <field name="name">Tipos de funci&#243;n y cable</field>
+        <field name="res_model">fiber.gis.asset.type</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_fiber_gis_asset_type" name="Tipos de funci&#243;n y cable" parent="menu_fiber_gis_config" action="action_fiber_gis_asset_type" sequence="10"/>
+</odoo>

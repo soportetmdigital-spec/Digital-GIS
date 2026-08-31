@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="fiber_gis.FiberDiagramField">
+        <div class="o_fiber_diagram_field" t-ref="diagram" t-att-aria-busy="state.busy"
+             t-on-click="onClick" t-on-dblclick="onDoubleClick" t-on-keydown="onKeyDown"
+             t-on-dragstart="onDragStart" t-on-dragover="onDragOver"
+             t-on-dragleave="onDragLeave" t-on-dragend="onDragEnd" t-on-drop="onDrop">
+            <t t-out="value"/>
+        </div>
+    </t>
+</templates>

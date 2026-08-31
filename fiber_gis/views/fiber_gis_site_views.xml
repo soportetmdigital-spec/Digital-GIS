@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_site_list" model="ir.ui.view">
+        <field name="name">fiber.gis.site.list</field>
+        <field name="model">fiber.gis.site</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code" string="Matricula"/>
+                <field name="name"/>
+                <field name="map_icon"/>
+                <field name="color" widget="fiber_color"/>
+                <field name="city"/>
+                <field name="state"/>
+                <field name="latitude"/>
+                <field name="longitude"/>
+                <field name="node_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_site_form" model="ir.ui.view">
+        <field name="name">fiber.gis.site.form</field>
+        <field name="model">fiber.gis.site</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_set_planned" type="object" string="Planificar"/>
+                    <button name="action_set_installed" type="object" string="Instalar"/>
+                    <button name="action_set_active" type="object" string="Activar" class="btn-primary"/>
+                    <button name="action_set_maintenance" type="object" string="Mantenimiento"/>
+                    <button name="action_set_retired" type="object" string="Retirar"/>
+                    <field name="state" widget="statusbar" statusbar_visible="planned,installed,active,maintenance,retired"/>
+                    <button name="action_geocode_openstreetmap" type="object" string="Obtener coordenadas" class="btn-secondary"/>
+                    <button name="action_open_google_maps" type="object" string="Abrir en Google Maps" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code" string="Matricula"/>
+                            <field name="partner_id"/>
+                            <field name="map_icon" widget="fiber_icon_select"/>
+                            <field name="color" widget="fiber_color"/>
+                        </group>
+                        <group>
+                            <field name="state"/>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Direcci&#xF3;n">
+                        <field name="street"/>
+                        <field name="street2"/>
+                        <field name="zip"/>
+                        <field name="city"/>
+                        <field name="state_id"/>
+                        <field name="country_id"/>
+                    </group>
+                    <notebook>
+                        <page string="Elementos">
+                            <field name="node_ids">
+                                <list editable="bottom">
+                                    <field name="code" string="Matricula"/>
+                                    <field name="name"/>
+                                    <field name="node_category_id"/>
+                                    <field name="type_id"/>
+                                    <field name="state"/>
+                                    <field name="latitude"/>
+                                    <field name="longitude"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notas">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_site" model="ir.actions.act_window">
+        <field name="name">Sitios</field>
+        <field name="res_model">fiber.gis.site</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_fiber_gis_site" name="Sitios" parent="menu_fiber_gis_inventory" action="action_fiber_gis_site" sequence="10"/>
+</odoo>

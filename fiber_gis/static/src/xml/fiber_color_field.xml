@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="fiber_gis.FiberColorField">
+        <div class="o_fiber_gis_color_field">
+            <input
+                type="color"
+                t-att-value="value"
+                t-att-disabled="props.readonly"
+                t-on-input="onInput"/>
+        </div>
+    </t>
+</templates>

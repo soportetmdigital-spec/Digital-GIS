@@ -1,0 +1,12 @@
+{
+    "available": false,
+    "image": "/fiber_gis/static/src/img/catastro_granada.png",
+    "bbox": {
+        "west": -3.745,
+        "south": 37.135,
+        "east": -3.545,
+        "north": 37.215
+    },
+    "width": 3200,
+    "height": 1800
+}

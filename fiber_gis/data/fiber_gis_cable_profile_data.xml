@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="cable_profile_drop_1" model="fiber.gis.cable.profile">
+        <field name="name">Acometida de 1 fibra</field>
+        <field name="tube_count">0</field>
+        <field name="fiber_count">1</field>
+    </record>
+    <record id="cable_profile_12" model="fiber.gis.cable.profile">
+        <field name="name">12 fibras</field>
+        <field name="tube_count">0</field>
+        <field name="fiber_count">12</field>
+    </record>
+    <record id="cable_profile_4x6" model="fiber.gis.cable.profile">
+        <field name="name">4 tubos de 6 fibras</field>
+        <field name="tube_count">4</field>
+        <field name="fiber_count">6</field>
+    </record>
+</odoo>

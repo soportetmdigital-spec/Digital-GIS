@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_splitter_list" model="ir.ui.view">
+        <field name="name">fiber.gis.splitter.list</field>
+        <field name="model">fiber.gis.splitter</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="node_id"/>
+                <field name="tray_id"/>
+                <field name="ratio"/>
+                <field name="splitter_type"/>
+                <field name="input_cable_id"/>
+                <field name="input_fiber_number"/>
+                <field name="connected_output_count"/>
+                <field name="free_output_count"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_splitter_form" model="ir.ui.view">
+        <field name="name">fiber.gis.splitter.form</field>
+        <field name="model">fiber.gis.splitter</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sync_outputs" type="object" string="Sincronizar salidas" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="planned,installed,active,fault,retired"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="tray_id"/>
+                            <field name="node_id" readonly="1"/>
+                            <field name="ratio"/>
+                            <field name="splitter_type"/>
+                            <field name="connector_type"/>
+                        </group>
+                        <group>
+                            <field name="available_input_fiber_ids" invisible="1"/>
+                            <field name="input_output_id" readonly="1" invisible="not input_output_id"/>
+                            <field name="input_fiber_id" domain="[('id', 'in', available_input_fiber_ids)]" invisible="input_output_id"/>
+                            <field name="input_cable_id" readonly="1" invisible="not input_fiber_id"/>
+                            <field name="input_tube" readonly="1" invisible="not input_tube"/>
+                            <field name="input_tube_color" widget="fiber_color" readonly="1" invisible="not input_tube"/>
+                            <field name="input_fiber_number" readonly="1" invisible="not input_fiber_id"/>
+                            <field name="input_fiber_color" widget="fiber_color" readonly="1" invisible="not input_fiber_id"/>
+                            <field name="nominal_loss_db"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="output_count" readonly="1"/>
+                            <field name="connected_output_count" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="free_output_count" readonly="1"/>
+                            <field name="install_date"/>
+                            <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="work_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="diagram_html" widget="fiber_diagram" nolabel="1" readonly="1"/>
+                    <notebook>
+                        <page string="Salidas">
+                            <field name="output_ids">
+                                <list editable="bottom" create="0" delete="0">
+                                    <button name="action_manage_connection" type="object" icon="fa-plug" title="Gestionar salida"/>
+                                    <field name="sequence" readonly="1"/>
+                                    <field name="port_color" widget="fiber_color" readonly="1"/>
+                                    <field name="name" optional="hide"/>
+                                    <field name="available_fiber_ids" column_invisible="1"/>
+                                    <field name="state"/>
+                                    <field name="output_fiber_id" domain="[('id', 'in', available_fiber_ids)]" readonly="1"/>
+                                    <field name="output_cable_id" readonly="1"/>
+                                    <field name="output_tube" readonly="1" optional="show"/>
+                                    <field name="output_tube_color" widget="fiber_color" readonly="1" optional="show"/>
+                                    <field name="output_fiber_number" readonly="1"/>
+                                    <field name="output_fiber_color" widget="fiber_color" readonly="1"/>
+                                    <field name="destination_label" readonly="1"/>
+                                    <field name="loss_db"/>
+                                    <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="work_date" readonly="1" optional="hide"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="observaciones" string="Observaciones">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_splitter_drop_wizard_form" model="ir.ui.view">
+        <field name="name">fiber.gis.splitter.drop.wizard.form</field>
+        <field name="model">fiber.gis.splitter.drop.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Gestionar salida de splitter" class="o_fiber_output_wizard_form">
+                <sheet>
+                    <field name="output_connected" invisible="1"/>
+                    <field name="has_child_splitter" invisible="1"/>
+                    <field name="output_state" invisible="1"/>
+                    <group>
+                        <group>
+                            <field name="splitter_id"/>
+                            <field name="node_id"/>
+                            <field name="available_output_ids" invisible="1"/>
+                            <field name="output_id" domain="[('id', 'in', available_output_ids)]" readonly="context.get('fiber_gis_fixed_output', False)"/>
+                            <field name="destination_label" invisible="not output_connected"/>
+                            <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                        </group>
+                        <group invisible="output_connected">
+                            <field name="operation" widget="radio"/>
+                        </group>
+                    </group>
+                    <group invisible="output_connected or operation != 'fusion'">
+                        <field name="available_cable_ids" invisible="1"/>
+                        <field name="available_fiber_ids" invisible="1"/>
+                        <field name="cable_id" domain="[('id', 'in', available_cable_ids)]" required="not output_connected and operation == 'fusion'"/>
+                        <field name="fiber_id" domain="[('id', 'in', available_fiber_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" options="{'no_create': True}" required="not output_connected and operation == 'fusion'"/>
+                    </group>
+                    <field name="fiber_info_html" nolabel="1" readonly="1" invisible="output_connected or operation != 'fusion'"/>
+                    <group invisible="output_connected or operation != 'splitter'">
+                        <field name="available_splitter_ids" invisible="1"/>
+                        <field name="create_splitter"/>
+                        <field name="target_splitter_id" domain="[('id', 'in', available_splitter_ids)]" options="{'no_create': True}" invisible="create_splitter" required="not output_connected and operation == 'splitter' and not create_splitter"/>
+                        <field name="tray_id" domain="[('node_id', '=', node_id)]" invisible="not create_splitter" required="not output_connected and operation == 'splitter' and create_splitter"/>
+                        <field name="splitter_name" invisible="not create_splitter"/>
+                        <field name="new_ratio" invisible="not create_splitter"/>
+                    </group>
+                    <group invisible="output_connected or operation != 'customer_drop'">
+                            <field name="available_drop_cable_ids" invisible="1"/>
+                            <field name="drop_cable_id" invisible="1"/>
+                            <field name="drop_cable_topology" invisible="1"/>
+                            <field name="available_drop_fiber_ids" invisible="1"/>
+                            <field name="drop_fiber_id" invisible="1"/>
+                            <field name="customer_id" required="not output_connected and operation == 'customer_drop'"/>
+                            <field name="customer_address" placeholder="Direcci&#243;n completa del cliente"/>
+                            <field name="customer_latitude"/>
+                            <field name="customer_longitude"/>
+                    </group>
+                    <field name="notes" placeholder="Observaciones del trabajo" invisible="output_connected"/>
+                </sheet>
+                <footer>
+                    <button name="action_connect" type="object" string="Conectar" class="btn-primary" invisible="output_connected or not operation"/>
+                    <button name="action_disconnect" type="object" string="Desconectar salida" class="btn-secondary" invisible="not output_connected and output_state == 'free'" confirm="Se desconectar&#225; esta salida. No se borrar&#225; el cable ni el splitter de destino. &#191;Continuar?"/>
+                    <button name="action_open_connected_splitter" type="object" string="Abrir splitter conectado" class="btn-secondary" invisible="not has_child_splitter"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_splitter" model="ir.actions.act_window">
+        <field name="name">Splitters</field>
+        <field name="res_model">fiber.gis.splitter</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'group_by': 'node_id'}</field>
+    </record>
+
+    <menuitem
+        id="menu_fiber_gis_splitter"
+        name="Splitters"
+        parent="menu_fiber_gis_operations"
+        action="action_fiber_gis_splitter"
+        sequence="15"/>
+</odoo>

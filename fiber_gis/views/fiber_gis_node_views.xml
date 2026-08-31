@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_node_list" model="ir.ui.view">
+        <field name="name">fiber.gis.node.list</field>
+        <field name="model">fiber.gis.node</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code" string="Matricula"/>
+                <field name="name"/>
+                <field name="dowisp_id"/>
+                <field name="node_category_id"/>
+                <field name="type_id"/>
+                <field name="deployment_plan_id" optional="hide"/>
+                <field name="partner_id" optional="hide"/>
+                <field name="map_icon"/>
+                <field name="color" widget="fiber_color"/>
+                <field name="site_id"/>
+                <field name="state"/>
+                <field name="latitude"/>
+                <field name="longitude"/>
+                <button name="action_open_map" type="object" string="Ver en mapa" class="btn-secondary"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_node_form" model="ir.ui.view">
+        <field name="name">fiber.gis.node.form</field>
+        <field name="model">fiber.gis.node</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_trace_wizard" type="object" string="Trazar fibra" class="btn-secondary"/>
+                    <button name="action_open_tray_wizard" type="object" string="Gestionar bandejas" class="btn-secondary" invisible="not has_trays or node_kind == 'ont'"/>
+                    <button name="action_geocode_openstreetmap" type="object" string="Obtener coordenadas" class="btn-secondary"/>
+                    <button name="action_open_map" type="object" string="Abrir en mapa" class="btn-primary"/>
+                    <button name="action_open_google_maps" type="object" string="Abrir en Google Maps" class="btn-secondary"/>
+                    <button name="action_set_planned" type="object" string="Planificar"/>
+                    <button name="action_set_installed" type="object" string="Instalar"/>
+                    <button name="action_set_active" type="object" string="Activar" class="btn-primary"/>
+                    <button name="action_set_maintenance" type="object" string="Mantenimiento"/>
+                    <button name="action_set_retired" type="object" string="Retirar"/>
+                    <field name="state" widget="statusbar" statusbar_visible="planned,installed,active,maintenance,retired"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="partner_id" invisible="node_kind != 'ont'"/>
+                            <field name="name"/>
+                            <field name="code" string="Matricula"/>
+                            <field name="node_category_id" options="{'no_quick_create': True}"/>
+                            <field name="node_kind" invisible="1"/>
+                            <field name="dowisp_cto" invisible="1"/>
+                            <field name="type_id" invisible="node_kind == 'ont'"
+                                   context="{'default_category': 'node', 'default_node_category_ids': [(4, node_category_id)] if node_category_id else []}"
+                                   options="{'no_quick_create': True}"/>
+                            <field name="deployment_plan_id" invisible="node_kind == 'ont'"/>
+                            <field name="map_icon" widget="fiber_icon_select"/>
+                            <field name="color" widget="fiber_color"/>
+                            <field name="has_trays" invisible="node_kind == 'ont'"/>
+                            <field name="tray_count" invisible="not has_trays or node_kind == 'ont'"/>
+                            <field name="site_id" invisible="node_kind == 'ont'"/>
+                            <field name="parent_id" invisible="node_kind == 'ont'"/>
+                        </group>
+                        <group>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <field name="altitude"/>
+                            <field name="address"/>
+                            <field name="active"/>
+                            <field name="image_preview_html" nolabel="1" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Arqueta" invisible="node_kind != 'manhole'">
+                        <group>
+                            <field name="manhole_model_id" options="{'no_quick_create': True}"/>
+                            <field name="manhole_type"/>
+                            <field name="child_count" readonly="1"/>
+                        </group>
+                        <group string="Medidas interiores">
+                            <field name="manhole_length_cm"/>
+                            <field name="manhole_width_cm"/>
+                            <field name="manhole_depth_cm"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Puertos" invisible="node_kind == 'ont'">
+                            <field name="port_ids">
+                                <list editable="bottom">
+                                    <field name="sequence"/>
+                                    <field name="name"/>
+                                    <field name="port_type"/>
+                                    <field name="direction"/>
+                                    <field name="status"/>
+                                    <field name="fiber_id"/>
+                                    <field name="employee_id" options="{'no_create': True, 'no_open': True}" optional="show"/>
+                                    <field name="work_date" readonly="1" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Cables" invisible="node_kind == 'ont'">
+                            <group>
+                                <field name="incoming_cable_ids" readonly="1">
+                                    <list>
+                                        <field name="profile_id"/>
+                                        <field name="name"/>
+                                        <field name="from_node_id"/>
+                                        <field name="total_fiber_count"/>
+                                        <field name="state"/>
+                                    </list>
+                                </field>
+                                <field name="outgoing_cable_ids" readonly="1">
+                                    <list>
+                                        <field name="profile_id"/>
+                                        <field name="name"/>
+                                        <field name="to_node_id"/>
+                                        <field name="total_fiber_count"/>
+                                        <field name="state"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+                        <page string="Contenido" invisible="node_kind != 'manhole'">
+                            <field name="child_ids">
+                                <list editable="bottom">
+                                    <field name="code" string="Matricula"/>
+                                    <field name="name"/>
+                                    <field name="node_category_id"/>
+                                    <field name="type_id"/>
+                                    <field name="state"/>
+                                    <field name="latitude"/>
+                                    <field name="longitude"/>
+                                    <button name="action_open_map" type="object" string="Ver en mapa" class="btn-secondary"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Bandejas" invisible="node_kind == 'ont'">
+                            <button name="action_open_tray_wizard" type="object" string="Asistente Bandejas" class="btn-primary" invisible="not has_trays"/>
+                            <field name="tray_visual_html" widget="fiber_diagram" nolabel="1" readonly="1"/>
+                        </page>
+                        <page string="Splitters" invisible="node_kind == 'ont'">
+                            <field name="splitter_ids" readonly="1">
+                                <list create="0" delete="0">
+                                    <field name="name"/>
+                                    <field name="tray_id"/>
+                                    <field name="ratio"/>
+                                    <field name="input_cable_id"/>
+                                    <field name="input_fiber_number"/>
+                                    <field name="connected_output_count"/>
+                                    <field name="free_output_count"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Datos t&#xE9;cnicos" invisible="node_kind != 'ont'">
+                            <group>
+                                <group string="Equipo">
+                                    <field name="image_1920" widget="image" string="Foto principal"/>
+                                    <field name="image_source_url" readonly="1"/>
+                                    <button name="action_fetch_equipment_photo" type="object" string="Buscar foto del equipo" class="btn-secondary"/>
+                                    <button name="action_clear_equipment_photo" type="object" string="Borrar foto principal" class="btn-secondary" confirm="&#xBF;Borrar la foto principal de este elemento?"/>
+                                </group>
+                                <group string="Identificaci&#xF3;n">
+                                    <field name="manufacturer"/>
+                                    <field name="model"/>
+                                    <field name="serial"/>
+                                    <field name="ont_firmware_version"/>
+                                    <field name="ont_mac_address"/>
+                                </group>
+                            </group>
+                            <group>
+                                <group string="GPON">
+                                    <field name="ont_gpon_serial"/>
+                                    <field name="ont_loid"/>
+                                    <field name="ont_ploam_password" password="True"/>
+                                    <field name="ont_olt_pon_port"/>
+                                    <field name="ont_optical_rx_dbm"/>
+                                    <field name="ont_optical_tx_dbm"/>
+                                </group>
+                                <group string="Router y red local">
+                                    <field name="ont_management_ip"/>
+                                    <field name="ont_operation_mode"/>
+                                    <field name="ont_internet_vlan"/>
+                                    <field name="ont_wifi_ssid"/>
+                                    <field name="ont_wifi_standard"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page name="datos_dowisp" string="Datos Dowisp"
+                            groups="fiber_gis.group_fiber_gis_user"
+                            invisible="node_kind != 'cto' and not dowisp_cto">
+                            <group>
+                                <group>
+                                    <field name="dowisp_id"/>
+                                    <field name="dowisp_cto"/>
+                                    <field name="dowisp_created_at"/>
+                                    <field name="dowisp_created_by"/>
+                                    <field name="dowisp_updated_by"/>
+                                    <field name="dowisp_internal_id"/>
+                                    <field name="previous_label"/>
+                                </group>
+                                <group>
+                                    <field name="dowisp_deployment"/>
+                                    <field name="dowisp_zone"/>
+                                    <field name="dowisp_import_file"/>
+                                    <field name="typology"/>
+                                    <field name="infrastructure"/>
+                                    <field name="dowisp_model"/>
+                                    <field name="dowisp_geom"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page name="datos_cto" string="Cobertura CTO"
+                            groups="fiber_gis.group_fiber_gis_user">
+                            <group>
+                                <group>
+                                    <field name="uuii" string="Viviendas/locales cubiertos"/>
+                                    <field name="illuminated"/>
+                                    <field name="olt_port"/>
+                                </group>
+                                <group>
+                                    <field name="fiber_assignment"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Modelo y Fabricante" invisible="node_kind == 'ont'">
+                            <group>
+                                <group>
+                                    <field name="image_1920" widget="image" string="Foto principal"/>
+                                    <field name="image_source_url" readonly="1"/>
+                                    <button name="action_fetch_equipment_photo" type="object" string="Buscar foto del equipo" class="btn-secondary"/>
+                                    <button name="action_clear_equipment_photo" type="object" string="Borrar foto principal" class="btn-secondary" confirm="&#xBF;Borrar la foto principal de este elemento?"/>
+                                </group>
+                                <group>
+                                <field name="manufacturer"/>
+                                <field name="model"/>
+                                <field name="serial"/>
+                                <field name="capacity_ports"/>
+                                <field name="tray_count" invisible="1"/>
+                                <field name="splitter_in_housing"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Fotos">
+                            <field name="node_photo_ids">
+                                <list editable="bottom">
+                                    <field name="image" widget="image"/>
+                                    <field name="comment"/>
+                                    <field name="date"/>
+                                    <field name="user_id"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Registro de trabajos">
+                            <field name="work_log_ids">
+                                <list editable="bottom">
+                                    <field name="date"/>
+                                    <field name="node_name"/>
+                                    <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="employee_name" optional="hide"/>
+                                    <field name="user_id" readonly="1" optional="hide"/>
+                                    <field name="work_type"/>
+                                    <field name="description"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Observaciones">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_node" model="ir.actions.act_window">
+        <field name="name">Elementos de red</field>
+        <field name="res_model">fiber.gis.node</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_fiber_gis_cto" model="ir.actions.act_window">
+        <field name="name">CTO</field>
+        <field name="res_model">fiber.gis.node</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('node_kind', '=', 'cto')]</field>
+        <field name="context">{
+            'default_node_kind': 'cto',
+            'default_dowisp_cto': True,
+            'default_map_icon': 'cto',
+            'default_color': '#e11d48'
+        }</field>
+    </record>
+
+    <menuitem id="menu_fiber_gis_node" name="Elementos de red" parent="menu_fiber_gis_inventory" action="action_fiber_gis_node" sequence="20"/>
+    <menuitem id="menu_fiber_gis_cto" name="CTO" parent="menu_fiber_gis_inventory" action="action_fiber_gis_cto" sequence="21"/>
+</odoo>

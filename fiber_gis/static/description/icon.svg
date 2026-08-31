@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#172033" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M92 379 C131 379 143 320 184 320 H245 C287 320 298 263 339 263 H392"
+          fill="none" stroke="#16c7b7" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M92 379 C131 379 143 320 184 320 H245"
+          fill="none" stroke="#a64683" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M245 320 C287 320 298 263 339 263 H392"
+          fill="none" stroke="#2f80c9" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M255 287 C255 209 319 145 397 145"
+          fill="none" stroke="#f6ae2d" stroke-width="46" stroke-linecap="round"/>
+  </g>
+  <circle cx="92" cy="379" r="48" fill="#a64683"/>
+  <circle cx="92" cy="379" r="20" fill="#ffffff"/>
+  <circle cx="255" cy="320" r="50" fill="#16c7b7"/>
+  <circle cx="255" cy="320" r="21" fill="#ffffff"/>
+  <circle cx="397" cy="145" r="48" fill="#f6ae2d"/>
+  <circle cx="397" cy="145" r="20" fill="#ffffff"/>
+  <circle cx="392" cy="263" r="38" fill="#2f80c9"/>
+  <circle cx="392" cy="263" r="15" fill="#ffffff"/>
+</svg>

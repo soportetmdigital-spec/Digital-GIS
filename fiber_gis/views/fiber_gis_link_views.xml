@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_logical_link_list" model="ir.ui.view">
+        <field name="name">fiber.gis.logical.link.list</field>
+        <field name="model">fiber.gis.logical.link</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code" string="Matricula"/>
+                <field name="name"/>
+                <field name="customer_id"/>
+                <field name="service_type"/>
+                <field name="from_node_id"/>
+                <field name="to_node_id"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_logical_link_form" model="ir.ui.view">
+        <field name="name">fiber.gis.logical.link.form</field>
+        <field name="model">fiber.gis.logical.link</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="planned,active,maintenance,down,retired"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code" string="Matricula"/>
+                            <field name="customer_id"/>
+                            <field name="service_type"/>
+                        </group>
+                        <group>
+                            <field name="from_node_id"/>
+                            <field name="to_node_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Ruta de fibras">
+                            <field name="fiber_ids" widget="many2many_tags"/>
+                        </page>
+                        <page string="Notas">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_logical_link" model="ir.actions.act_window">
+        <field name="name">Enlaces l&#xF3;gicos</field>
+        <field name="res_model">fiber.gis.logical.link</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_fiber_gis_logical_link" name="Enlaces l&#xF3;gicos" parent="menu_fiber_gis_operations" action="action_fiber_gis_logical_link" sequence="20"/>
+</odoo>

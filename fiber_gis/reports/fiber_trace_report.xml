@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_fiber_trace" model="report.paperformat">
+        <field name="name">Fiber GIS trazado compacto</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">3</field>
+        <field name="margin_bottom">5</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">110</field>
+    </record>
+
+    <record id="action_report_fiber_trace" model="ir.actions.report">
+        <field name="name">Trazado de fibra</field>
+        <field name="model">fiber.gis.trace.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fiber_gis.report_fiber_trace_document</field>
+        <field name="report_file">fiber_gis.report_fiber_trace_document</field>
+        <field name="print_report_name">'Trazado fibra - %s' % (object.fiber_id.display_name or '')</field>
+        <field name="paperformat_id" ref="fiber_gis.paperformat_fiber_trace"/>
+    </record>
+
+    <template id="report_fiber_trace_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="trace" t-value="doc._get_trace_data()"/>
+                <div class="page" style="font-size: 8px; line-height: 1.15; margin: 0; padding: 0; font-family: Arial, sans-serif;">
+                    <style>
+                        .fiber-trace-title { font-size: 13px; font-weight: 700; margin: 0 0 4px 0; }
+                        .fiber-trace-meta { width: 100%; border-collapse: collapse; margin: 0 0 5px 0; }
+                        .fiber-trace-meta td { padding: 1px 8px 1px 0; white-space: nowrap; vertical-align: middle; }
+                        .fiber-trace-section { font-size: 10px; font-weight: 700; margin: 6px 0 3px 0; }
+                        .fiber-trace-table { width: 100%; border-collapse: collapse; font-size: 7.6px; line-height: 1.05; }
+                        .fiber-trace-table th,
+                        .fiber-trace-table td { border: 1px solid #999; padding: 2px 3px; vertical-align: middle; white-space: nowrap; }
+                        .fiber-trace-table th { font-weight: 700; background: #f1f5f9; }
+                    </style>
+
+                    <div class="fiber-trace-title">Trazado de fibra</div>
+                    <table class="fiber-trace-meta">
+                        <tr>
+                            <td><strong>Origen:</strong> <span t-esc="trace.get('origin')"/></td>
+                            <td>
+                                <strong>Fibra:</strong> <span t-esc="trace.get('fiber')"/>
+                                <span t-att-style="'display:inline-block;width:8px;height:8px;border:1px solid #333;background:%s;margin-left:4px;vertical-align:middle;' % trace.get('fiber_color')"/>
+                            </td>
+                            <td><strong>Fecha:</strong> <span t-field="doc.create_date"/></td>
+                        </tr>
+                    </table>
+
+                    <div class="fiber-trace-section">Plano del trazado</div>
+                    <t t-out="doc._get_trace_map_svg()"/>
+
+                    <div class="fiber-trace-section">Recorrido</div>
+                    <table class="fiber-trace-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 6%;">Paso</th>
+                                <th style="width: 6%;">Color</th>
+                                <th style="width: 24%;">Elemento</th>
+                                <th style="width: 26%;">Cable / fibra</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="trace.get('rows')" t-as="row">
+                                <td><span t-esc="row.get('sequence')"/></td>
+                                <td>
+                                    <span t-att-style="'display:inline-block;width:9px;height:9px;border:1px solid #333;background:%s;' % row.get('fiber_color')"/>
+                                </td>
+                                <td><span t-esc="row.get('node_name')"/></td>
+                                <td>
+                                    <span t-esc="row.get('cable_name')"/>
+                                    <span> - Fibra </span><span t-esc="row.get('fiber_number')"/>
+                                </td>
+                                <td><span t-esc="row.get('detail')"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

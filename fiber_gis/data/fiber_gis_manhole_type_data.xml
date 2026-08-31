@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="manhole_type_operator_m" model="fiber.gis.manhole.type">
+        <field name="sequence">10</field>
+        <field name="name">Operadora tipo M</field>
+        <field name="code">OPER_M</field>
+        <field name="manufacturer">Tipologia de operadora</field>
+        <field name="standard_reference">Red subterranea de telecomunicaciones</field>
+        <field name="length_cm">40</field>
+        <field name="width_cm">40</field>
+        <field name="depth_cm">62</field>
+        <field name="usual_use">Paso o derivacion pequena en acera</field>
+    </record>
+    <record id="manhole_type_operator_h" model="fiber.gis.manhole.type">
+        <field name="sequence">20</field>
+        <field name="name">Operadora tipo H</field>
+        <field name="code">OPER_H</field>
+        <field name="manufacturer">Tipologia de operadora</field>
+        <field name="standard_reference">Red subterranea de telecomunicaciones</field>
+        <field name="length_cm">80</field>
+        <field name="width_cm">70</field>
+        <field name="depth_cm">82</field>
+        <field name="usual_use">Paso, cambio de direccion y acometidas</field>
+    </record>
+    <record id="manhole_type_operator_d" model="fiber.gis.manhole.type">
+        <field name="sequence">30</field>
+        <field name="name">Operadora tipo D</field>
+        <field name="code">OPER_D</field>
+        <field name="manufacturer">Tipologia de operadora</field>
+        <field name="standard_reference">Red subterranea de telecomunicaciones</field>
+        <field name="length_cm">109</field>
+        <field name="width_cm">90</field>
+        <field name="depth_cm">100</field>
+        <field name="usual_use">Canalizacion principal, empalmes y reservas</field>
+    </record>
+    <record id="manhole_type_ict_entry_20" model="fiber.gis.manhole.type">
+        <field name="sequence">40</field>
+        <field name="name">ICT entrada hasta 20 PAU</field>
+        <field name="code">ICT_E20</field>
+        <field name="manufacturer">ICT</field>
+        <field name="standard_reference">Real Decreto 346/2011</field>
+        <field name="length_cm">40</field>
+        <field name="width_cm">40</field>
+        <field name="depth_cm">60</field>
+        <field name="usual_use">Entrada de edificios con hasta 20 PAU</field>
+    </record>
+    <record id="manhole_type_ict_entry_100" model="fiber.gis.manhole.type">
+        <field name="sequence">50</field>
+        <field name="name">ICT entrada de 21 a 100 PAU</field>
+        <field name="code">ICT_E100</field>
+        <field name="manufacturer">ICT</field>
+        <field name="standard_reference">Real Decreto 346/2011</field>
+        <field name="length_cm">60</field>
+        <field name="width_cm">60</field>
+        <field name="depth_cm">80</field>
+        <field name="usual_use">Entrada de edificios entre 21 y 100 PAU</field>
+    </record>
+    <record id="manhole_type_ict_entry_large" model="fiber.gis.manhole.type">
+        <field name="sequence">60</field>
+        <field name="name">ICT entrada de mas de 100 PAU</field>
+        <field name="code">ICT_E101</field>
+        <field name="manufacturer">ICT</field>
+        <field name="standard_reference">Real Decreto 346/2011</field>
+        <field name="length_cm">80</field>
+        <field name="width_cm">70</field>
+        <field name="depth_cm">82</field>
+        <field name="usual_use">Entrada de edificios con mas de 100 PAU</field>
+    </record>
+    <record id="manhole_type_ict_passage" model="fiber.gis.manhole.type">
+        <field name="sequence">70</field>
+        <field name="name">ICT de paso</field>
+        <field name="code">ICT_PASO</field>
+        <field name="manufacturer">ICT</field>
+        <field name="standard_reference">Real Decreto 346/2011</field>
+        <field name="length_cm">40</field>
+        <field name="width_cm">40</field>
+        <field name="depth_cm">40</field>
+        <field name="usual_use">Paso en canalizacion externa</field>
+    </record>
+</odoo>

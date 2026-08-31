@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_deployment_plan_list" model="ir.ui.view">
+        <field name="name">fiber.gis.deployment.plan.list</field>
+        <field name="model">fiber.gis.deployment.plan</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'review'" decoration-success="state == 'done'" decoration-muted="state == 'cancelled'">
+                <field name="name"/>
+                <field name="zone"/>
+                <field name="responsible_id"/>
+                <field name="planned_start"/>
+                <field name="planned_end"/>
+                <field name="node_count"/>
+                <field name="cable_count"/>
+                <field name="estimated_length_m" sum="Metros dibujados"/>
+                <field name="estimated_with_reserve_m" sum="Metros estimados"/>
+                <field name="missing_coordinates_count"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_deployment_plan_form" model="ir.ui.view">
+        <field name="name">fiber.gis.deployment.plan.form</field>
+        <field name="model">fiber.gis.deployment.plan</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_map" type="object" string="Abrir plano de trabajo" class="btn-primary"/>
+                    <button name="action_print_pdf" type="object" string="Imprimir PDF" class="btn-secondary"/>
+                    <button name="action_submit_review" type="object" string="Enviar a revisi&#xF3;n" invisible="state != 'draft'"/>
+                    <button name="action_approve" type="object" string="Aprobar" class="btn-primary" invisible="state != 'review'"/>
+                    <button name="action_start" type="object" string="Iniciar ejecuci&#xF3;n" invisible="state != 'approved'"/>
+                    <button name="action_finish" type="object" string="Finalizar" class="btn-primary" invisible="state != 'in_progress'"/>
+                    <button name="action_cancel" type="object" string="Cancelar plan" invisible="state in ['done', 'cancelled']"/>
+                    <button name="action_reset_draft" type="object" string="Volver a borrador" invisible="state not in ['review', 'approved', 'cancelled']"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,review,approved,in_progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Ej.: Ampliaci&#xF3;n FTTH Camino de Ronda"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="zone"/>
+                            <field name="responsible_id"/>
+                            <field name="technician_ids" widget="many2many_tags"/>
+                        </group>
+                        <group>
+                            <field name="planned_start"/>
+                            <field name="planned_end"/>
+                            <field name="reserve_percent"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Estimaci&#xF3;n del trabajo" col="6">
+                        <field name="node_count" readonly="1"/>
+                        <field name="cable_count" readonly="1"/>
+                        <field name="estimated_length_m" readonly="1"/>
+                        <field name="estimated_with_reserve_m" readonly="1"/>
+                        <field name="missing_coordinates_count" readonly="1"/>
+                        <field name="direct_cable_count" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Elementos">
+                            <field name="node_ids" context="{'default_state': 'planned'}">
+                                <list>
+                                    <field name="code" string="Matr&#xED;cula"/>
+                                    <field name="name"/>
+                                    <field name="node_category_id"/>
+                                    <field name="type_id"/>
+                                    <field name="address"/>
+                                    <field name="latitude"/>
+                                    <field name="longitude"/>
+                                    <field name="state"/>
+                                    <button name="action_open_map" type="object" string="Ver en mapa" class="btn-secondary"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Cables">
+                            <field name="cable_ids" context="{'default_state': 'planned'}">
+                                <list>
+                                    <field name="profile_id"/>
+                                    <field name="name"/>
+                                    <field name="from_node_id"/>
+                                    <field name="to_node_id"/>
+                                    <field name="total_fiber_count"/>
+                                    <field name="route_kind"/>
+                                    <field name="length_m"/>
+                                    <field name="state"/>
+                                    <button name="action_open_map" type="object" string="Ver en mapa" class="btn-secondary"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Alcance y observaciones">
+                            <field name="description" placeholder="Trabajos previstos, permisos, accesos, riesgos y notas para el t&#xE9;cnico..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_deployment_plan" model="ir.actions.act_window">
+        <field name="name">Planes de despliegue</field>
+        <field name="res_model">fiber.gis.deployment.plan</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem
+        id="menu_fiber_gis_deployment_plan"
+        name="Planes de despliegue"
+        parent="menu_fiber_gis_operations"
+        action="action_fiber_gis_deployment_plan"
+        sequence="5"/>
+</odoo>

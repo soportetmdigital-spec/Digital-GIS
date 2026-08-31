@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="type_node_olt" model="fiber.gis.asset.type">
+        <field name="name">OLT</field>
+        <field name="code">OLT</field>
+        <field name="category">node</field>
+        <field name="sequence">10</field>
+        <field name="color">#2563eb</field>
+    </record>
+    <record id="type_node_odf" model="fiber.gis.asset.type">
+        <field name="name">ODF</field>
+        <field name="code">ODF</field>
+        <field name="category">node</field>
+        <field name="sequence">20</field>
+        <field name="color">#7c3aed</field>
+    </record>
+    <record id="type_node_box" model="fiber.gis.asset.type">
+        <field name="name">Caja terminal</field>
+        <field name="code">BOX</field>
+        <field name="category">node</field>
+        <field name="sequence">30</field>
+        <field name="color">#059669</field>
+    </record>
+    <record id="type_node_cto" model="fiber.gis.asset.type">
+        <field name="name">CTO</field>
+        <field name="code">CTO</field>
+        <field name="category">node</field>
+        <field name="sequence">35</field>
+        <field name="color">#e11d48</field>
+    </record>
+    <record id="type_node_closure" model="fiber.gis.asset.type">
+        <field name="name">Caja de registro</field>
+        <field name="code">CLOSURE</field>
+        <field name="category">node</field>
+        <field name="sequence">40</field>
+        <field name="color">#d97706</field>
+    </record>
+    <record id="type_node_manhole" model="fiber.gis.asset.type">
+        <field name="name">Arqueta</field>
+        <field name="code">MANHOLE</field>
+        <field name="category">node</field>
+        <field name="sequence">50</field>
+        <field name="color">#475569</field>
+    </record>
+    <record id="type_cable_backbone" model="fiber.gis.asset.type">
+        <field name="name">Cable troncal</field>
+        <field name="code">CABLE_BACKBONE</field>
+        <field name="category">cable</field>
+        <field name="sequence">10</field>
+        <field name="color">#ef4444</field>
+    </record>
+    <record id="type_cable_distribution" model="fiber.gis.asset.type">
+        <field name="name">Cable de distribuci&#xF3;n</field>
+        <field name="code">CABLE_DISTRIBUTION</field>
+        <field name="category">cable</field>
+        <field name="sequence">20</field>
+        <field name="color">#f59e0b</field>
+    </record>
+    <record id="type_cable_drop" model="fiber.gis.asset.type">
+        <field name="name">Acometida</field>
+        <field name="code">CABLE_DROP</field>
+        <field name="category">cable</field>
+        <field name="sequence">30</field>
+        <field name="color">#10b981</field>
+    </record>
+</odoo>

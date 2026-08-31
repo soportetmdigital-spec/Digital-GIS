@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <delete model="ir.ui.menu" search="[('name', '=', 'Empalmes')]"/>
+    <delete model="ir.actions.act_window.view" search="[('view_id.name', 'ilike', 'splice')]"/>
+    <delete model="ir.actions.act_window" search="[('res_model', 'in', ['fiber.gis.splice', 'fiber.gis.splice.wizard'])]"/>
+    <delete model="ir.actions.act_window" search="[('name', '=', 'Empalmes'), ('res_model', '=', 'fiber.gis.node')]"/>
+    <delete model="ir.ui.view" search="[('name', 'ilike', 'splice')]"/>
+    <delete model="ir.ui.view" search="[('arch_db', 'ilike', 'splice_diagram_html')]"/>
+    <delete model="ir.ui.view" search="[('arch_db', 'ilike', 'splice_ids')]"/>
+    <delete model="ir.model.data" search="[('module', '=', 'fiber_gis'), ('name', 'ilike', 'splice')]"/>
+</odoo>

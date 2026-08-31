@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="fiber_gis.FiberIconSelectField">
+        <div class="o_fiber_gis_icon_select" t-att-class="props.readonly ? 'is-readonly' : ''">
+            <button
+                class="o_fiber_gis_icon_current"
+                type="button"
+                t-att-disabled="props.readonly"
+                t-att-title="selectedOption.label"
+                t-on-click="openPicker">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <circle t-if="value === 'circle'" cx="24" cy="24" r="14" t-att-fill="color"/>
+                    <rect t-elif="value === 'square'" x="11" y="11" width="26" height="26" rx="5" t-att-fill="color"/>
+                    <path t-else="" t-att-d="path(value)" t-att-fill="color" fill-rule="evenodd" transform="translate(24 24)"/>
+                </svg>
+            </button>
+            <t t-if="state.open">
+                <div class="o_fiber_gis_icon_modal_backdrop" t-on-click="closePicker"/>
+                <div class="o_fiber_gis_icon_modal">
+                    <div class="o_fiber_gis_icon_modal_header">
+                        <strong>Elegir icono de mapa</strong>
+                        <button type="button" t-on-click="closePicker">&#xD7;</button>
+                    </div>
+                    <div class="o_fiber_gis_icon_grid">
+                        <button
+                            t-foreach="options"
+                            t-as="option"
+                            t-key="option.value"
+                            type="button"
+                            t-att-class="option.value === value ? 'is-selected' : ''"
+                            t-on-click="() => this.select(option.value)">
+                            <svg viewBox="0 0 48 48" aria-hidden="true">
+                                <circle t-if="option.value === 'circle'" cx="24" cy="24" r="14" t-att-fill="color"/>
+                                <rect t-elif="option.value === 'square'" x="11" y="11" width="26" height="26" rx="5" t-att-fill="color"/>
+                                <path t-else="" t-att-d="path(option.value)" t-att-fill="color" fill-rule="evenodd" transform="translate(24 24)"/>
+                            </svg>
+                            <span t-esc="option.label"/>
+                        </button>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>
