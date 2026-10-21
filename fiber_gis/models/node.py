@@ -5,13 +5,14 @@ import html
 import json
 import re
 import unicodedata
-from urllib.parse import quote_plus, urlencode
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from .map_icon import map_icon_preview_html
+from .map_actions import google_maps_action
 from .node_category import NODE_KIND_SELECTION
 
 
@@ -22,13 +23,14 @@ class FiberGisNode(models.Model):
     _order = "name"
 
     name = fields.Char(string="Nombre", tracking=True)
-    code = fields.Char(string="Matricula", tracking=True)
+    code = fields.Char(string="Matricula", tracking=True, index=True)
     node_kind = fields.Selection(
         NODE_KIND_SELECTION,
         string="Categoria tecnica",
         required=True,
         default="box",
         tracking=True,
+        index=True,
     )
     node_category_id = fields.Many2one(
         "fiber.gis.node.category",
@@ -159,6 +161,7 @@ class FiberGisNode(models.Model):
         default="planned",
         required=True,
         tracking=True,
+        index=True,
     )
     manufacturer = fields.Char(string="Fabricante")
     model = fields.Char(string="Modelo del fabricante")
@@ -209,6 +212,11 @@ class FiberGisNode(models.Model):
         string="Estandar Wi-Fi",
     )
     capacity_ports = fields.Integer(string="Capacidad puertos")
+    cable_entry_count = fields.Integer(
+        string="Bocas de cable",
+        default=4,
+        help="Numero de entradas para cables en este elemento. Se puede ajustar al equipo instalado.",
+    )
     has_trays = fields.Boolean(string="Tiene bandejas")
     tray_count = fields.Integer(string="Numero de bandejas")
     splitter_in_housing = fields.Boolean(string="Splitter en carcasa")
@@ -220,6 +228,14 @@ class FiberGisNode(models.Model):
     )
     image_source_url = fields.Char(string="Origen foto")
     node_photo_ids = fields.One2many("fiber.gis.node.photo", "node_id", string="Fotos de instalacion")
+    splice_photo_ids = fields.One2many(
+        "fiber.gis.splice.document", "node_id", string="Fotos de empalme",
+        domain=[("kind", "=", "photo")],
+    )
+    splice_card_ids = fields.One2many(
+        "fiber.gis.splice.document", "node_id", string="Cartas de empalme",
+        domain=[("kind", "=", "excel")],
+    )
     port_ids = fields.One2many("fiber.gis.port", "node_id", string="Puertos")
     incoming_cable_ids = fields.One2many("fiber.gis.cable", "to_node_id", string="Cables de entrada")
     outgoing_cable_ids = fields.One2many("fiber.gis.cable", "from_node_id", string="Cables de salida")
@@ -231,7 +247,7 @@ class FiberGisNode(models.Model):
         compute="_compute_tray_visual_html",
         sanitize=False,
     )
-    work_log_ids = fields.One2many("fiber.gis.node.work.log", "node_id", string="Registro de trabajos")
+    work_log_ids = fields.One2many("fiber.gis.node.work.log", "node_id", string="Registro técnico")
     notes = fields.Text(string="Observaciones")
     active = fields.Boolean(string="Activo", default=True)
     CTO_ILLUMINATED_COLOR = "#16a34a"
@@ -239,6 +255,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def default_get(self, fields_list):
+        """Completa los valores iniciales del formulario con los valores por defecto del modelo."""
         values = super().default_get(fields_list)
         category = self.env["fiber.gis.node.category"].browse(values.get("node_category_id")).exists()
         if self.env.context.get("default_node_kind") and not self.env.context.get("default_node_category_id"):
@@ -247,8 +264,12 @@ class FiberGisNode(models.Model):
             defaults = {
                 "node_category_id": category.id,
                 "node_kind": category.node_kind,
-                "map_icon": category.map_icon or self._default_icon_from_kind(category.node_kind),
-                "color": category.color,
+                "has_trays": category.has_trays,
+                "cable_entry_count": category.cable_entry_count,
+                "map_icon": "square" if category.node_kind == "manhole" and not self.env.context.get("default_map_icon") else (
+                    category.map_icon or self._default_icon_from_kind(category.node_kind)
+                ),
+                "color": category.color or self._default_color_from_kind(category.node_kind),
             }
             for name, value in defaults.items():
                 if name in fields_list and f"default_{name}" not in self.env.context:
@@ -257,11 +278,12 @@ class FiberGisNode(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         seen_codes = set()
         for values in vals_list:
             self._prepare_name_code_values(values)
             code = values.get("code")
-            if code:
+            if code and not self.env.context.get("skip_fiber_gis_code_check"):
                 if code in seen_codes:
                     raise ValidationError(f"Ya hay mas de un elemento con la matricula '{code}' en los datos que intentas guardar.")
                 seen_codes.add(code)
@@ -274,10 +296,13 @@ class FiberGisNode(models.Model):
         nodes._ensure_trays_from_count()
         for node in nodes:
             node._log_work("element", "Elemento creado.")
-            node._auto_fetch_equipment_photo()
+        if not self.env.context.get("skip_fiber_gis_auto_photo_fetch"):
+            for node in nodes:
+                node._auto_fetch_equipment_photo()
         return nodes
 
     def write(self, vals):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         result = True
         for node in self:
             values = dict(vals)
@@ -299,12 +324,14 @@ class FiberGisNode(models.Model):
 
     @api.onchange("has_trays")
     def _onchange_has_trays(self):
+        """Recalcula los campos del formulario al cambiar «tiene bandejas», antes de guardar el registro."""
         for node in self:
             if node.has_trays and not node.tray_count:
                 node.tray_count = 1
 
     @api.onchange("manhole_model_id")
     def _onchange_manhole_model_id(self):
+        """Recalcula los campos del formulario al cambiar «arqueta modelo identificador», antes de guardar el registro."""
         for node in self:
             if not node.manhole_model_id:
                 continue
@@ -314,6 +341,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _prepare_manhole_model_values(self, values):
+        """Prepara «arqueta modelo valores» y aplica los valores derivados necesarios antes de persistirlos."""
         model_id = values.get("manhole_model_id")
         if not model_id:
             return
@@ -325,6 +353,7 @@ class FiberGisNode(models.Model):
         values.setdefault("manhole_depth_cm", manhole_model.depth_cm)
 
     def _ensure_trays_from_count(self):
+        """Crea las bandejas que falten para alcanzar el número indicado, sin duplicar las existentes."""
         tray_model = self.env["fiber.gis.tray"]
         for node in self:
             if not node.has_trays or not node.tray_count:
@@ -342,14 +371,17 @@ class FiberGisNode(models.Model):
                 })
 
     def unlink(self):
+        """Elimina los registros aplicando las comprobaciones y limpiezas necesarias en sus relaciones."""
         nodes = self._with_descendant_nodes()
         if nodes != self and not self.env.context.get("fiber_gis_unlink_expanded"):
             return nodes.with_context(fiber_gis_unlink_expanded=True).unlink()
-        nodes._log_work("delete", "Elemento borrado. Se limpian bandejas, cables y registros relacionados.")
+        if nodes != self:
+            nodes._log_work("delete", "Elemento borrado. Se limpian bandejas, cables y registros relacionados.")
         nodes._unlink_related_network_records()
         return super(FiberGisNode, nodes).unlink()
 
     def _with_descendant_nodes(self):
+        """Devuelve el elemento y sus descendientes, deteniendo el recorrido si detecta una relación circular."""
         nodes = self
         pending = self
         while pending:
@@ -359,6 +391,7 @@ class FiberGisNode(models.Model):
         return nodes
 
     def _unlink_related_network_records(self):
+        """Elimina las conexiones de red dependientes antes de borrar el elemento."""
         self.ensure_one() if len(self) == 1 else None
         cable_model = self.env["fiber.gis.cable"].with_context(active_test=False)
         link_model = self.env["fiber.gis.logical.link"].with_context(active_test=False)
@@ -399,12 +432,14 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _clean_name_code_value(self, value):
+        """Normaliza un nombre o código y elimina espacios sobrantes antes de compararlo."""
         if not isinstance(value, str):
             return value
         return value.strip() or False
 
     @api.model
     def _prepare_name_code_values(self, values, record=False):
+        """Prepara nombre y matrícula y comprueba posibles duplicados antes de guardar el elemento."""
         if "name" in values:
             values["name"] = self._clean_name_code_value(values.get("name"))
         if "code" in values:
@@ -425,6 +460,7 @@ class FiberGisNode(models.Model):
 
     @api.onchange("code")
     def _onchange_code_duplicate_warning(self):
+        """Recalcula los campos del formulario al cambiar «código duplicado aviso», antes de guardar el registro."""
         for node in self:
             code = (node.code or "").strip()
             if not code:
@@ -442,7 +478,10 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _check_code_available(self, code, record=False):
+        """Valida «código disponible» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         if not code:
+            return
+        if self.env.context.get("skip_fiber_gis_code_check"):
             return
         domain = [("code", "=", code)]
         if record:
@@ -451,6 +490,9 @@ class FiberGisNode(models.Model):
             raise ValidationError(f"Ya existe un elemento con la matricula '{code}'. Usa otra matricula antes de guardar.")
 
     def _log_work(self, work_type, description, employee_id=None):
+        """Registra en el historial del elemento el trabajo realizado y el técnico seleccionado."""
+        if self.env.context.get("skip_fiber_gis_work_log"):
+            return
         from .work_log import work_employee_id
         if employee_id is None:
             employee_id = work_employee_id(self.env)
@@ -470,10 +512,14 @@ class FiberGisNode(models.Model):
                 })
 
     def _equipment_photo_query(self):
+        """Prepara la consulta de búsqueda de imagen a partir del fabricante y modelo del equipo."""
         self.ensure_one()
         return " ".join(part for part in [self.manufacturer, self.model] if part).strip()
 
     def _auto_fetch_equipment_photo(self):
+        """Busca una fotografía del modelo de equipo y guarda la imagen encontrada si es válida."""
+        if self.env.context.get("skip_fiber_gis_auto_photo_fetch"):
+            return
         for node in self:
             if node.image_1920 or not node._equipment_photo_query():
                 continue
@@ -483,6 +529,7 @@ class FiberGisNode(models.Model):
                 node.message_post(body="No se ha podido obtener automaticamente la foto del equipo.")
 
     def action_fetch_equipment_photo(self):
+        """Ejecuta la acción de usuario «consulta equipo fotografía» y devuelve el resultado correspondiente a Odoo."""
         for node in self:
             query = node._equipment_photo_query()
             if not query:
@@ -516,6 +563,7 @@ class FiberGisNode(models.Model):
         }
 
     def action_clear_equipment_photo(self):
+        """Ejecuta la acción de usuario «limpieza equipo fotografía» y devuelve el resultado correspondiente a Odoo."""
         for node in self:
             node.with_context(skip_fiber_gis_work_log=True).write({
                 "image_1920": False,
@@ -535,10 +583,12 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _find_equipment_image_url(self, query):
+        """Busca una dirección de imagen adecuada para el modelo del equipo."""
         return self._find_commons_image_url(query) or self._find_duckduckgo_image_url(query)
 
     @api.model
     def _find_commons_image_url(self, query):
+        """Busca una imagen reutilizable en Wikimedia Commons para el equipo."""
         params = urlencode({
             "action": "query",
             "format": "json",
@@ -566,6 +616,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _find_duckduckgo_image_url(self, query):
+        """Localiza resultados de imagen mediante el buscador DuckDuckGo."""
         search_url = f"https://duckduckgo.com/?{urlencode({'q': query, 'iax': 'images', 'ia': 'images'})}"
         headers = {
             "User-Agent": "Mozilla/5.0 FiberGIS-Odoo/1.0",
@@ -602,6 +653,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _download_image(self, image_url):
+        """Descarga una imagen remota y comprueba su respuesta antes de devolverla."""
         request = Request(image_url, headers={"User-Agent": "FiberGIS-Odoo/1.0"})
         with urlopen(request, timeout=10) as response:
             data = response.read(5 * 1024 * 1024)
@@ -614,6 +666,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _prepare_dowisp_values(self, values, node=None):
+        """Prepara «dowisp valores» y aplica los valores derivados necesarios antes de persistirlos."""
         if values.get("dowisp_cto") and not values.get("node_kind"):
             values["node_kind"] = "cto"
         is_cto = values.get("node_kind") == "cto" or values.get("dowisp_cto") or (node and node.node_kind == "cto")
@@ -629,6 +682,7 @@ class FiberGisNode(models.Model):
 
     @api.onchange("type_id")
     def _onchange_type_id(self):
+        """Recalcula los campos del formulario al cambiar «tipo identificador», antes de guardar el registro."""
         for node in self:
             if node.type_id and not node.node_category_id:
                 node.node_category_id = node.type_id.node_category_ids[:1]
@@ -636,16 +690,22 @@ class FiberGisNode(models.Model):
 
     @api.onchange("node_category_id")
     def _onchange_node_category_id(self):
+        """Recalcula los campos del formulario al cambiar «elemento de red categoría identificador», antes de guardar el registro."""
         for node in self:
             if node.node_category_id:
                 node.node_kind = node.node_category_id.node_kind
+                node.has_trays = node.node_category_id.has_trays
+                if node.has_trays and not node.tray_count:
+                    node.tray_count = 1
                 node.map_icon = node.node_category_id.map_icon or node._default_icon_from_kind(node.node_kind)
                 node.color = node.node_category_id.color
+                node.cable_entry_count = node.node_category_id.cable_entry_count
             if node.type_id and node.node_category_id not in node.type_id.node_category_ids:
                 node.type_id = False
 
     @api.model
     def _prepare_type_values(self, values, node=None):
+        """Prepara «tipo valores» y aplica los valores derivados necesarios antes de persistirlos."""
         type_id = values.get("type_id")
         if not type_id or values.get("node_category_id") or values.get("node_kind"):
             return
@@ -657,6 +717,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _prepare_category_values(self, values, node=None):
+        """Prepara «categoría valores» y aplica los valores derivados necesarios antes de persistirlos."""
         if node and not {"node_category_id", "node_kind"}.intersection(values):
             return
         category_id = values.get("node_category_id")
@@ -680,14 +741,26 @@ class FiberGisNode(models.Model):
             values["node_category_id"] = category.id
             values["node_kind"] = category.node_kind
             if not node or node.node_category_id != category:
-                values.setdefault("map_icon", category.map_icon or self._default_icon_from_kind(category.node_kind))
-                values.setdefault("color", category.color)
+                values.setdefault("has_trays", category.has_trays)
+                if category.has_trays:
+                    values.setdefault("tray_count", 1)
+            if not node or node.node_category_id != category:
+                values.setdefault("cable_entry_count", category.cable_entry_count)
+            if not node or node.node_category_id != category:
+                values.setdefault(
+                    "map_icon",
+                    "square" if category.node_kind == "manhole" else (
+                        category.map_icon or self._default_icon_from_kind(category.node_kind)
+                    ),
+                )
+                values.setdefault("color", category.color or self._default_color_from_kind(category.node_kind))
             if node and node.type_id and "type_id" not in values:
                 if category not in node.type_id.node_category_ids:
                     values["type_id"] = False
 
     @api.constrains("node_category_id", "type_id")
     def _check_model_function(self):
+        """Valida que la función elegida pertenezca al modelo de elemento seleccionado."""
         for node in self:
             function = node.type_id
             if function and (
@@ -700,12 +773,14 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _node_category_from_kind(self, kind):
+        """Relaciona el tipo técnico interno con la categoría de elemento que muestra la interfaz."""
         if not kind:
             return self.env["fiber.gis.node.category"]
         return self.env["fiber.gis.node.category"].search([("node_kind", "=", kind)], limit=1)
 
     @api.model
     def _default_icon_from_kind(self, kind):
+        """Devuelve el icono predeterminado asociado al tipo de elemento."""
         return {
             "site": "network",
             "olt": "olt",
@@ -714,7 +789,7 @@ class FiberGisNode(models.Model):
             "cto": "cto",
             "box": "terminal",
             "closure": "closure",
-            "manhole": "manhole",
+            "manhole": "square",
             "pole": "pole",
             "splitter": "splitter",
             "rack": "rack",
@@ -722,7 +797,13 @@ class FiberGisNode(models.Model):
         }.get(kind, "circle")
 
     @api.model
+    def _default_color_from_kind(self, kind):
+        """Devuelve el color inicial predeterminado según el tipo de elemento."""
+        return "#000000" if kind == "manhole" else False
+
+    @api.model
     def _node_kind_from_type(self, type_record):
+        """Obtiene el tipo de elemento de red asociado a su tipo GIS."""
         if not type_record:
             return False
         code = (type_record.code or "").upper()
@@ -744,10 +825,12 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _get_cto_color(self, illuminated):
+        """Obtiene el color de fibra que corresponde a la boca de la CTO."""
         return self.CTO_ILLUMINATED_COLOR if illuminated else self.CTO_NOT_ILLUMINATED_COLOR
 
     @api.model
     def action_update_cto_colors(self):
+        """Ejecuta la acción de usuario «actualización CTO colores» y devuelve el resultado correspondiente a Odoo."""
         ctos = self.search(["|", ("node_kind", "=", "cto"), ("dowisp_cto", "=", True)])
         for cto in ctos:
             cto.with_context(skip_cto_color_prepare=True).write({
@@ -757,6 +840,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _parse_dowisp_point(self, geom):
+        """Interpreta una coordenada recibida de Dowisp y devuelve un punto geográfico utilizable."""
         match = re.search(
             r"POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)",
             geom or "",
@@ -768,11 +852,13 @@ class FiberGisNode(models.Model):
 
     @api.depends("child_ids")
     def _compute_child_count(self):
+        """Calcula y actualiza «elemento dependiente cantidad» a partir de los datos actuales y sus relaciones."""
         for node in self:
             node.child_count = len(node.child_ids)
 
     @api.depends("tray_ids")
     def _compute_tray_record_count(self):
+        """Calcula y actualiza «bandeja registro cantidad» a partir de los datos actuales y sus relaciones."""
         for node in self:
             node.tray_record_count = len(node.tray_ids)
 
@@ -802,10 +888,12 @@ class FiberGisNode(models.Model):
         "tray_ids.line_ids.notes",
     )
     def _compute_tray_visual_html(self):
+        """Calcula y actualiza «bandeja visual HTML» a partir de los datos actuales y sus relaciones."""
         for node in self:
             node.tray_visual_html = node._build_tray_visual_html()
 
     def _build_tray_visual_html(self):
+        """Construye «bandeja visual HTML» con los datos del modelo para mostrarlo o imprimirlo."""
         self.ensure_one()
         if not self.tray_ids:
             return (
@@ -816,16 +904,27 @@ class FiberGisNode(models.Model):
         cards = []
         for tray in self.tray_ids.sorted(lambda item: (item.sequence, item.name or "")):
             rows = []
-            for line in tray.line_ids.sorted(lambda item: (item.position, item.id)):
+            # En la ficha se agrupan los trabajos por función: splitter, fusión,
+            # fibras en punta y, al final, sangrías. La posición se conserva en
+            # los registros y se usa como orden estable dentro de cada grupo.
+            tray_line_priority = {
+                "splitter": 0,
+                "fusion": 1,
+                "free": 2,
+                "pending_cancel": 2,
+                "pass": 3,
+            }
+            for line in tray.line_ids.sorted(
+                lambda item: (tray_line_priority.get(item.line_type, 4), item.position, item.id)
+            ):
                 rows.append(self._tray_line_visual_html(line))
-            effective_capacity = max(tray.capacity or 0, 30)
             no_lines = "<div class='o_fiber_tray_no_lines'>Sin fibras registradas.</div>"
             tray_lines = "".join(rows) or no_lines
             cards.append(
                 f"<section class='o_fiber_tray_card' data-tray-id='{tray.id}'>"
                 "<header class='o_fiber_tray_card_header'>"
                 f"<strong>{html.escape(tray.name or 'Bandeja')}</strong>"
-                f"<span>{tray.used_positions}/{effective_capacity}</span>"
+                f"<span>{tray.used_positions} trabajos</span>"
                 "</header>"
                 f"<div class='o_fiber_tray_lines'>{tray_lines}</div>"
                 "</section>"
@@ -837,6 +936,7 @@ class FiberGisNode(models.Model):
         )
 
     def _tray_line_visual_html(self, line):
+        """Construye la representación HTML de una operación y sus fibras en la bandeja."""
         type_labels = dict(line._fields["line_type"].selection)
         type_label = type_labels.get(line.line_type, line.line_type or "")
         input_html = self._fiber_endpoint_html(line.input_fiber_id, line.input_tube, line.input_tube_color, line.input_fiber_color)
@@ -848,12 +948,17 @@ class FiberGisNode(models.Model):
                 f"<em>Salida {source.sequence} - {html.escape(source.splitter_id.tray_id.display_name)}</em></span>"
             )
         output = self._fiber_endpoint_html(line.output_fiber_id, line.output_tube, line.output_tube_color, line.output_fiber_color)
-        if line.line_type == "free":
+        if line.line_type in ("free", "pending_cancel"):
             arrow_html = ""
             output_html = ""
         elif line.line_type == "pass":
-            arrow_html = ""
-            output_html = "<span class='o_fiber_endpoint is-empty'>Cable de paso</span>"
+            if line.output_fiber_id:
+                arrow_html = "<span class='o_fiber_tray_arrow'>&rarr;</span>"
+                output_html = output or "<span class='o_fiber_endpoint is-empty'>Sin cable de salida</span>"
+            else:
+                # Mantiene legibles los registros antiguos que solo guardaban la fibra de entrada.
+                arrow_html = ""
+                output_html = "<span class='o_fiber_endpoint is-empty'>Sangría sin continuidad registrada</span>"
         elif line.line_type == "splitter":
             arrow_html = "<span class='o_fiber_tray_arrow'>&rarr;</span>"
             if line.splitter_id:
@@ -870,9 +975,9 @@ class FiberGisNode(models.Model):
             output_html = output or "<span class='o_fiber_endpoint is-empty'>Sin salida</span>"
         splitter = f"<span class='o_fiber_tray_ratio'>{html.escape(line.splitter_ratio)}</span>" if line.splitter_ratio else ""
         notes = f"<small>{html.escape(line.notes or '')}</small>" if line.notes else ""
+        pending_class = " is-pending-cancel" if line.line_type == "pending_cancel" else ""
         return (
-            f"<article class='o_fiber_tray_line' draggable='true' data-line-id='{line.id}' data-node-id='{self.id}' tabindex='0' role='button' title='Doble clic para abrir la fibra; arrastrar para mover a otra bandeja'>"
-            f"<span class='o_fiber_tray_pos'>{line.position}</span>"
+            f"<article class='o_fiber_tray_line{pending_class}' draggable='true' data-line-id='{line.id}' data-node-id='{self.id}' tabindex='0' role='button' title='Doble clic para abrir la fibra; arrastrar para mover a otra bandeja'>"
             f"<span class='o_fiber_tray_type'>{html.escape(type_label)}</span>"
             f"{input_html}"
             f"{arrow_html}"
@@ -886,6 +991,7 @@ class FiberGisNode(models.Model):
         )
 
     def _fiber_endpoint_html(self, fiber, tube, tube_color, fiber_color):
+        """Muestra para un extremo la fibra, el elemento, la bandeja y la operación registrados."""
         if not fiber:
             return ""
         cable = fiber.cable_id.display_name or ""
@@ -913,6 +1019,7 @@ class FiberGisNode(models.Model):
         )
 
     def _fiber_endpoint_label(self, fiber):
+        """Devuelve la dirección o el elemento identificativo de un extremo de fibra."""
         self.ensure_one()
         cable = fiber.cable_id
         if cable.from_node_id == self:
@@ -923,6 +1030,7 @@ class FiberGisNode(models.Model):
         return self._format_fiber_endpoint(endpoint)
 
     def _format_fiber_endpoint(self, endpoint):
+        """Formatea la fibra, su bandeja y el elemento conectado para mostrar el extremo."""
         if not endpoint:
             return ""
         label = endpoint.display_name or endpoint.name or endpoint.code or "Elemento"
@@ -932,6 +1040,7 @@ class FiberGisNode(models.Model):
 
     @api.depends("map_icon", "color")
     def _compute_map_icon_preview_html(self):
+        """Calcula y actualiza «mapa icono vista previa HTML» a partir de los datos actuales y sus relaciones."""
         for node in self:
             labels = dict(node._fields["map_icon"].selection)
             node.map_icon_preview_html = map_icon_preview_html(
@@ -942,6 +1051,7 @@ class FiberGisNode(models.Model):
 
     @api.depends("image_1920")
     def _compute_image_preview_html(self):
+        """Calcula y actualiza «imagen vista previa HTML» a partir de los datos actuales y sus relaciones."""
         for node in self:
             if not node.image_1920 or not node.id:
                 node.image_preview_html = ""
@@ -955,6 +1065,7 @@ class FiberGisNode(models.Model):
 
     @api.constrains("latitude", "longitude")
     def _check_coordinates(self):
+        """Valida «coordenadas» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         for node in self:
             if node.latitude and not -90 <= node.latitude <= 90:
                 raise ValidationError("La latitud debe estar entre -90 y 90.")
@@ -962,6 +1073,7 @@ class FiberGisNode(models.Model):
                 raise ValidationError("La longitud debe estar entre -180 y 180.")
 
     def action_open_map(self):
+        """Abre el registro seleccionado en el mapa de Fiber GIS."""
         self.ensure_one()
         params = {
             "target_node_id": self.id,
@@ -976,6 +1088,7 @@ class FiberGisNode(models.Model):
         }
 
     def action_delete_element(self):
+        """Ejecuta la acción de usuario «borrado elemento» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         self.unlink()
         return {
@@ -983,6 +1096,7 @@ class FiberGisNode(models.Model):
         }
 
     def action_open_trace_wizard(self):
+        """Abre el asistente para diagnosticar el recorrido de una fibra."""
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
@@ -996,10 +1110,11 @@ class FiberGisNode(models.Model):
         }
 
     def action_open_tray_wizard(self):
+        """Abre el asistente de operaciones de bandeja para el elemento seleccionado."""
         self.ensure_one()
         if self.has_trays and self.tray_count and not self.tray_ids:
             self._ensure_trays_from_count()
-        cable = (self.incoming_cable_ids | self.outgoing_cable_ids)[:1]
+        cable = self.incoming_cable_ids[:1] or self.outgoing_cable_ids[:1]
         return {
             "type": "ir.actions.act_window",
             "name": "Gestionar bandejas",
@@ -1014,20 +1129,32 @@ class FiberGisNode(models.Model):
             },
         }
 
-    def action_open_google_maps(self):
+    def action_open_splice_upload(self):
+        """Abre el formulario para adjuntar una carta Excel a este elemento."""
         self.ensure_one()
-        if self.latitude and self.longitude:
-            query = f"{self.latitude},{self.longitude}"
-        else:
-            query = self._get_geocoding_query()
+        if not self.has_trays or self.node_kind == "ont":
+            raise UserError("Las cartas de empalme solo están disponibles en elementos con bandejas.")
         return {
-            "type": "ir.actions.act_url",
-            "name": "Abrir en Google Maps",
+            "type": "ir.actions.act_window",
+            "name": "Subir carta Excel",
+            "res_model": "fiber.gis.splice.document",
+            "view_mode": "form",
+            "view_id": self.env.ref("fiber_gis.view_fiber_gis_splice_document_upload_form").id,
             "target": "new",
-            "url": f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}",
+            "context": {
+                "default_node_id": self.id,
+                "default_kind": "excel",
+                "default_name": False,
+            },
         }
 
+    def action_open_google_maps(self):
+        """Abre en Google Maps la ubicación del registro seleccionado."""
+        self.ensure_one()
+        return google_maps_action(self.latitude, self.longitude, self._get_geocoding_query)
+
     def action_geocode_openstreetmap(self):
+        """Ejecuta la acción de usuario «geocodificación OpenStreetMap» y devuelve el resultado correspondiente a Odoo."""
         site_model = self.env["fiber.gis.site"]
         for node in self:
             query = node._get_geocoding_query()
@@ -1047,6 +1174,7 @@ class FiberGisNode(models.Model):
         return self.action_geocode_openstreetmap()
 
     def _get_geocoding_query(self):
+        """Obtiene «geocodificación consulta» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         if self.address and self.address.strip():
             query = self.address.strip()
@@ -1063,7 +1191,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _customer_address(self, customer):
-        """Build the map address using only fields provided by base contacts."""
+        """Forma la dirección del cliente usando solo los campos de contacto disponibles."""
         customer = customer.exists()
         if not customer:
             return ""
@@ -1081,7 +1209,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _customer_partner_coordinates(self, customer):
-        """Use partner coordinates when the optional geolocation fields exist."""
+        """Obtiene las coordenadas del contacto cuando la instalación dispone de esos campos geográficos."""
         if (
             not customer
             or "partner_latitude" not in customer._fields
@@ -1095,7 +1223,7 @@ class FiberGisNode(models.Model):
 
     @api.model
     def _customer_business_identifier(self, customer):
-        """Return the customer-facing identifier used in drop registrations."""
+        """Devuelve el identificador de cliente que se guarda en el registro de acometida."""
         customer.ensure_one()
         allowed_types = {"char", "text", "integer"}
         label_candidates = {
@@ -1138,7 +1266,7 @@ class FiberGisNode(models.Model):
         )
 
     def _ensure_customer_drop(self, customer, address=None, latitude=0.0, longitude=0.0):
-        """Create or reuse the customer endpoint, its drop cable and first fiber."""
+        """Busca o crea el extremo de cliente, el cable de acometida y su primera fibra sin duplicar registros."""
         self.ensure_one()
         customer = customer.exists()
         if not customer:
@@ -1238,16 +1366,21 @@ class FiberGisNode(models.Model):
         return endpoint, drop_cable, drop_fiber
 
     def action_set_planned(self):
+        """Cambia el estado del registro a planificado."""
         self.write({"state": "planned"})
 
     def action_set_installed(self):
+        """Cambia el estado del registro a instalado."""
         self.write({"state": "installed"})
 
     def action_set_active(self):
+        """Activa el registro y actualiza su estado."""
         self.write({"state": "active"})
 
     def action_set_maintenance(self):
+        """Marca el registro en mantenimiento."""
         self.write({"state": "maintenance"})
 
     def action_set_retired(self):
+        """Retira el registro de la red activa."""
         self.write({"state": "retired"})

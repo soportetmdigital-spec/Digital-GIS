@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
+                <field name="gis_type_id"/>
                 <field name="tube_count"/>
                 <field name="fiber_count" string="Fibras / fibras por tubo"/>
                 <field name="total_fiber_count"/>
@@ -20,6 +21,7 @@
                 <sheet>
                     <group>
                         <field name="name"/>
+                        <field name="gis_type_id"/>
                         <field name="tube_count"/>
                         <field name="fiber_count" string="Fibras / fibras por tubo"/>
                         <field name="total_fiber_count" readonly="1"/>

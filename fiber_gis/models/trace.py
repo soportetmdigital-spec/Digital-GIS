@@ -1,18 +1,17 @@
 """Trazado de fibras para diagnostico, mapa resaltado e informe PDF."""
 
-import base64
 import html
-import math
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-CATASTRO_WMS_URL = "https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx"
-WEB_MERCATOR_LIMIT = 20037508.342789244
+from .map_geometry import (
+    catastro_wms_png_data_uri,
+    fit_bbox_to_aspect,
+    latlon_to_web_mercator,
+    project_map_point,
+)
 
 
 class FiberGisTraceWizard(models.TransientModel):
@@ -24,6 +23,7 @@ class FiberGisTraceWizard(models.TransientModel):
     result_html = fields.Html(string="Recorrido", readonly=True, sanitize=False)
 
     def action_trace(self):
+        """Ejecuta la acción de usuario «trazado» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         if self.fiber_id.cable_id.from_node_id != self.node_id and self.fiber_id.cable_id.to_node_id != self.node_id:
             raise UserError("La fibra seleccionada no pertenece a un cable conectado al elemento origen.")
@@ -38,6 +38,7 @@ class FiberGisTraceWizard(models.TransientModel):
         }
 
     def action_open_trace_map(self):
+        """Ejecuta la acción de usuario «apertura trazado mapa» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         if not self.result_html:
             self.result_html = self._build_trace_html()
@@ -52,6 +53,7 @@ class FiberGisTraceWizard(models.TransientModel):
         }
 
     def action_print_pdf(self):
+        """Genera y descarga el informe PDF correspondiente."""
         self.ensure_one()
         if not self.result_html:
             self.result_html = self._build_trace_html()
@@ -59,6 +61,7 @@ class FiberGisTraceWizard(models.TransientModel):
 
     @api.model
     def get_trace_map_data(self, node_id, fiber_id):
+        """Prepara los datos geográficos que necesita el mapa del recorrido de una fibra."""
         wizard = self.create({
             "node_id": node_id,
             "fiber_id": fiber_id,
@@ -67,18 +70,21 @@ class FiberGisTraceWizard(models.TransientModel):
 
     @api.model
     def action_print_trace_pdf(self, wizard_id):
+        """Genera el informe PDF con el recorrido de la fibra."""
         wizard = self.browse(wizard_id).exists()
         if not wizard:
             raise UserError("No se ha encontrado el trazado para imprimir.")
         return wizard.action_print_pdf()
 
     def _build_trace_html(self):
+        """Construye «trazado HTML» con los datos del modelo para mostrarlo o imprimirlo."""
         data = self._get_trace_data()
         if not data["rows"]:
             return "<p>No hay recorrido para mostrar.</p>"
         return "<div class='o_fiber_trace_diagram'>" + "".join(self._trace_row(row) for row in data["rows"]) + "</div>"
 
     def _get_trace_data(self):
+        """Obtiene «trazado datos» aplicando las reglas y relaciones propias del modelo."""
         rows = []
         cable_ids = []
         node_ids = []
@@ -127,10 +133,10 @@ class FiberGisTraceWizard(models.TransientModel):
 
             connections, stop_detail = self._trace_connections(other_node, current_fiber)
             if not connections:
-                free_line = self.env["fiber.gis.tray.line"].search(
+                terminal_line = self.env["fiber.gis.tray.line"].search(
                     [
                         ("node_id", "=", other_node.id),
-                        ("line_type", "=", "free"),
+                        ("line_type", "in", ("free", "pending_cancel")),
                         "|",
                         ("input_fiber_id", "=", current_fiber.id),
                         ("output_fiber_id", "=", current_fiber.id),
@@ -138,8 +144,12 @@ class FiberGisTraceWizard(models.TransientModel):
                     limit=1,
                 )
                 detail = stop_detail or (
-                    "Fin del recorrido: fibra libre en bandeja."
-                    if free_line
+                    (
+                        "Fin del recorrido: fibra pendiente de anular."
+                        if terminal_line.line_type == "pending_cancel"
+                        else "Fin del recorrido: fibra en punta en bandeja."
+                    )
+                    if terminal_line
                     else "Fin del recorrido: no hay conexion registrada en bandeja."
                 )
                 rows.append(self._trace_row_values(
@@ -188,7 +198,7 @@ class FiberGisTraceWizard(models.TransientModel):
         tray_line = self.env["fiber.gis.tray.line"].search(
             [
                 ("node_id", "=", node.id),
-                ("line_type", "=", "fusion"),
+                ("line_type", "in", ("fusion", "pass")),
                 "|",
                 ("input_fiber_id", "=", fiber.id),
                 ("output_fiber_id", "=", fiber.id),
@@ -204,8 +214,12 @@ class FiberGisTraceWizard(models.TransientModel):
             if next_fiber:
                 return [(
                     next_fiber,
-                    f"Fusion en {tray_line.tray_id.display_name or ''}: "
-                    f"pasa a fibra {next_fiber.number}",
+                    (
+                        f"Continuidad de paso en {tray_line.tray_id.display_name or ''}: "
+                        f"continúa a fibra {next_fiber.number} de {next_fiber.cable_id.display_name}"
+                        if tray_line.line_type == "pass"
+                        else f"Fusión en {tray_line.tray_id.display_name or ''}: pasa a fibra {next_fiber.number}"
+                    ),
                 )], False
 
         splitter_outputs = self.env["fiber.gis.splitter.output"].search([
@@ -242,6 +256,7 @@ class FiberGisTraceWizard(models.TransientModel):
         return [], False
 
     def _trace_row_values(self, sequence, node, fiber, detail):
+        """Recorre o representa «fila valores» para mantener la continuidad del trazado de fibra."""
         return {
             "sequence": sequence,
             "node_id": node.id,
@@ -255,6 +270,7 @@ class FiberGisTraceWizard(models.TransientModel):
         }
 
     def _trace_row(self, row):
+        """Recorre o representa «fila» para mantener la continuidad del trazado de fibra."""
         color = row.get("fiber_color") or "#d1d5db"
         node_name = html.escape(row.get("node_name") or "")
         cable_name = html.escape(row.get("cable_name") or "")
@@ -271,6 +287,7 @@ class FiberGisTraceWizard(models.TransientModel):
         )
 
     def _get_trace_map_svg(self):
+        """Obtiene «trazado mapa SVG» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         data = self._get_trace_data()
         cables = self.env["fiber.gis.cable"].browse(data["cable_ids"]).exists()
@@ -293,7 +310,7 @@ class FiberGisTraceWizard(models.TransientModel):
         image_width = 1800
         image_height = 780
 
-        mercator_points = [self._latlon_to_web_mercator(lat, lon) for lat, lon in points]
+        mercator_points = [latlon_to_web_mercator(lat, lon) for lat, lon in points]
         min_x = min(point[0] for point in mercator_points)
         max_x = max(point[0] for point in mercator_points)
         min_y = min(point[1] for point in mercator_points)
@@ -304,18 +321,17 @@ class FiberGisTraceWizard(models.TransientModel):
         max_x += x_pad
         min_y -= y_pad
         max_y += y_pad
-        min_x, min_y, max_x, max_y = self._fit_bbox_to_aspect(min_x, min_y, max_x, max_y, width / height)
-
-        def project(lat, lon):
-            mercator_x, mercator_y = self._latlon_to_web_mercator(lat, lon)
-            x = ((mercator_x - min_x) / max(max_x - min_x, 0.000001)) * width
-            y = ((max_y - mercator_y) / max(max_y - min_y, 0.000001)) * height
-            return (round(x, 1), round(y, 1))
+        min_x, min_y, max_x, max_y = fit_bbox_to_aspect(
+            min_x, min_y, max_x, max_y, width / height
+        )
 
         catastro_image = self._trace_catastro_image(min_x, min_y, max_x, max_y, image_width, image_height)
         trace_paths = []
         for cable, route in cable_points:
-            coords = [project(lat, lon) for lat, lon in route]
+            coords = [
+                project_map_point(lat, lon, min_x, min_y, max_x, max_y, width, height)
+                for lat, lon in route
+            ]
             path = " ".join(f"{'M' if index == 0 else 'L'} {x} {y}" for index, (x, y) in enumerate(coords))
             trace_paths.append(f"<path d='{path}' class='trace-route'><title>{html.escape(cable.display_name or '')}</title></path>")
 
@@ -323,7 +339,9 @@ class FiberGisTraceWizard(models.TransientModel):
         for index, node in enumerate(nodes, start=1):
             if not node.latitude or not node.longitude:
                 continue
-            x, y = project(node.latitude, node.longitude)
+            x, y = project_map_point(
+                node.latitude, node.longitude, min_x, min_y, max_x, max_y, width, height
+            )
             label = html.escape(node.display_name or "")
             node_marks.append(
                 f"<circle cx='{x}' cy='{y}' r='5' class='trace-node'/>"
@@ -354,6 +372,7 @@ class FiberGisTraceWizard(models.TransientModel):
         return Markup(svg)
 
     def _trace_cable_points(self, cable):
+        """Recorre o representa «cable puntos» para mantener la continuidad del trazado de fibra."""
         cable.ensure_one()
         points = []
         if cable.from_node_id.latitude and cable.from_node_id.longitude:
@@ -365,64 +384,16 @@ class FiberGisTraceWizard(models.TransientModel):
             points.append((cable.to_node_id.latitude, cable.to_node_id.longitude))
         return points
 
-    @staticmethod
-    def _latlon_to_web_mercator(lat, lon):
-        clipped_lat = max(min(lat, 85.05112878), -85.05112878)
-        x = lon * WEB_MERCATOR_LIMIT / 180.0
-        y = math.log(math.tan((90.0 + clipped_lat) * math.pi / 360.0)) * WEB_MERCATOR_LIMIT / math.pi
-        return (x, y)
-
-    @staticmethod
-    def _fit_bbox_to_aspect(min_x, min_y, max_x, max_y, target_aspect):
-        bbox_width = max(max_x - min_x, 1)
-        bbox_height = max(max_y - min_y, 1)
-        current_aspect = bbox_width / bbox_height
-        center_x = (min_x + max_x) / 2
-        center_y = (min_y + max_y) / 2
-        if current_aspect < target_aspect:
-            bbox_width = bbox_height * target_aspect
-        else:
-            bbox_height = bbox_width / target_aspect
-        return (
-            center_x - bbox_width / 2,
-            center_y - bbox_height / 2,
-            center_x + bbox_width / 2,
-            center_y + bbox_height / 2,
-        )
-
     def _trace_catastro_image(self, min_x, min_y, max_x, max_y, width, height):
-        params = urllib.parse.urlencode({
-            "SERVICE": "WMS",
-            "VERSION": "1.1.1",
-            "REQUEST": "GetMap",
-            "FORMAT": "image/png",
-            "TRANSPARENT": "FALSE",
-            "SRS": "EPSG:3857",
-            "LAYERS": "Catastro",
-            "STYLES": "",
-            "BBOX": f"{min_x},{min_y},{max_x},{max_y}",
-            "WIDTH": str(width),
-            "HEIGHT": str(height),
-        })
-        request = urllib.request.Request(
-            f"{CATASTRO_WMS_URL}?{params}",
-            headers={"User-Agent": "Odoo Fiber GIS trace report"},
+        """Solicita la cartografía catastral para el área del trazado y prepara la imagen del informe."""
+        image_uri = catastro_wms_png_data_uri(
+            min_x, min_y, max_x, max_y, width, height,
+            "Odoo Fiber GIS trace report", timeout=20,
         )
-        try:
-            with urllib.request.urlopen(request, timeout=20) as response:
-                payload = response.read()
-                content_type = response.headers.get("Content-Type", "image/png")
-        except urllib.error.URLError:
+        if not image_uri:
             return (
                 f"<div class='trace-map-note' style='height:{height}px;background:#f8fafc;'>"
                 "No se ha podido cargar Catastro para este plano."
                 "</div>"
             )
-        if not payload.startswith(b"\x89PNG"):
-            return (
-                f"<div class='trace-map-note' style='height:{height}px;background:#f8fafc;'>"
-                "Catastro no ha devuelto una imagen valida."
-                "</div>"
-            )
-        encoded = base64.b64encode(payload).decode("ascii")
-        return f"<img class='trace-map-base' src='data:{content_type};base64,{encoded}' alt='Plano del Catastro'/>"
+        return f"<img class='trace-map-base' src='{image_uri}' alt='Plano del Catastro'/>"

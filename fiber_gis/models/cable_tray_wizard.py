@@ -5,6 +5,7 @@ import html
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 from .work_log import work_employee_id
+from .splitter_options import SPLITTER_RATIO_SELECTION
 
 
 class FiberGisCableTrayWizard(models.TransientModel):
@@ -12,15 +13,22 @@ class FiberGisCableTrayWizard(models.TransientModel):
     employee_id = fields.Many2one("hr.employee.public", string="T\u00e9cnico", default=lambda self: work_employee_id(self.env))
     _description = "Registrar cable en bandeja"
 
-    operation = fields.Selection(
-        [
-            ("rest", "Dejar fibras en resto"),
+    @api.model
+    def _selection_operation(self):
+        options = [
+            ("rest", "Fibra en punta"),
+            ("pending_cancel", "Fibra pendiente de anular"),
             ("fusion", "Fusionar con otro cable"),
-            ("pass", "Cable de paso con resto"),
+            ("pass", "Sangría"),
             ("splitter", "Instalar splitter"),
-            ("splitter_fusion", "Conectar fibra a splitter"),
             ("customer_drop", "Acometida final de cliente"),
-        ],
+        ]
+        if self.env.context.get("fiber_gis_internal_splitter_fusion"):
+            options.insert(-1, ("splitter_fusion", "Conectar fibra a splitter"))
+        return options
+
+    operation = fields.Selection(
+        selection="_selection_operation",
         string="Operacion",
         default="rest",
         required=True,
@@ -28,6 +36,16 @@ class FiberGisCableTrayWizard(models.TransientModel):
     available_cable_ids = fields.Many2many(
         "fiber.gis.cable",
         string="Cables del elemento",
+        compute="_compute_available_cable_ids",
+    )
+    available_pass_input_cable_ids = fields.Many2many(
+        "fiber.gis.cable",
+        string="Cables que vienen de otra caja",
+        compute="_compute_available_cable_ids",
+    )
+    available_pass_output_cable_ids = fields.Many2many(
+        "fiber.gis.cable",
+        string="Cables que van a otra caja",
         compute="_compute_available_cable_ids",
     )
     available_fiber_ids = fields.Many2many(
@@ -66,6 +84,10 @@ class FiberGisCableTrayWizard(models.TransientModel):
         compute="_compute_splitter_and_drop_options",
     )
     cable_id = fields.Many2one("fiber.gis.cable", string="Cable")
+    pass_output_cable_id = fields.Many2one(
+        "fiber.gis.cable",
+        string="Cable que va a la caja destino",
+    )
     cable_topology = fields.Char(related="cable_id.topology", string="Tipologia cable", readonly=True)
     node_id = fields.Many2one("fiber.gis.node", string="Elemento", required=True)
     tray_id = fields.Many2one("fiber.gis.tray", string="Bandeja")
@@ -98,16 +120,8 @@ class FiberGisCableTrayWizard(models.TransientModel):
         "fiber_id",
         string="Fibra del otro cable",
     )
-    pass_tray_id = fields.Many2one("fiber.gis.tray", string="Bandeja cable de paso")
     splitter_ratio = fields.Selection(
-        [
-            ("1:2", "1:2"),
-            ("1:4", "1:4"),
-            ("1:8", "1:8"),
-            ("1:16", "1:16"),
-            ("1:32", "1:32"),
-            ("1:64", "1:64"),
-        ],
+        SPLITTER_RATIO_SELECTION,
         string="Relacion splitter",
         default="1:8",
     )
@@ -182,6 +196,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.depends("source_line_id", "source_fiber_id")
     def _compute_source_info_html(self):
+        """Calcula y actualiza «origen información HTML» a partir de los datos actuales y sus relaciones."""
         for wizard in self:
             line = wizard.source_line_id
             if not line:
@@ -207,6 +222,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         splitter_model = self.env["fiber.gis.splitter"]
         for values in vals_list:
             if "splitter_loss_db" not in values:
@@ -214,32 +230,70 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 values["splitter_loss_db"] = splitter_model.get_default_nominal_loss_db(ratio)
         return super().create(vals_list)
 
-    @api.depends("node_id")
+    @api.depends("node_id", "node_id.incoming_cable_ids", "node_id.outgoing_cable_ids")
     def _compute_available_cable_ids(self):
+        """Actualiza la lista de cables conectados al elemento seleccionado."""
         for wizard in self:
             if wizard.node_id:
                 wizard.available_cable_ids = wizard.node_id.incoming_cable_ids | wizard.node_id.outgoing_cable_ids
+                wizard.available_pass_input_cable_ids = wizard.node_id.incoming_cable_ids
+                wizard.available_pass_output_cable_ids = wizard.node_id.outgoing_cable_ids
             else:
                 wizard.available_cable_ids = self.env["fiber.gis.cable"]
+                wizard.available_pass_input_cable_ids = self.env["fiber.gis.cable"]
+                wizard.available_pass_output_cable_ids = self.env["fiber.gis.cable"]
 
-    @api.depends("cable_id", "other_cable_id")
+    @api.depends(
+        "cable_id", "other_cable_id", "node_id", "source_line_id", "source_fiber_id",
+        "node_id.tray_ids.line_ids.input_fiber_id", "node_id.tray_ids.line_ids.output_fiber_id",
+        "node_id.splitter_ids.input_fiber_id", "node_id.splitter_ids.output_ids.output_fiber_id",
+        "node_id.port_ids.fiber_id",
+    )
     def _compute_available_fiber_ids(self):
+        """Actualiza las listas de fibras disponibles para los cables elegidos."""
         empty = self.env["fiber.gis.cable.fiber"]
         for wizard in self:
             if wizard.cable_id and not wizard.cable_id.fiber_ids:
                 wizard.cable_id.action_generate_fibers()
             if wizard.other_cable_id and not wizard.other_cable_id.fiber_ids:
                 wizard.other_cable_id.action_generate_fibers()
-            wizard.available_fiber_ids = wizard.cable_id.fiber_ids if wizard.cable_id else empty
-            wizard.available_other_fiber_ids = wizard.other_cable_id.fiber_ids if wizard.other_cable_id else empty
+            wizard.available_fiber_ids = wizard._available_fibers_for_cable(wizard.cable_id) if wizard.cable_id else empty
+            wizard.available_other_fiber_ids = wizard._available_fibers_for_cable(wizard.other_cable_id) if wizard.other_cable_id else empty
+
+    def _available_fibers_for_cable(self, cable):
+        """Oculta fibras fusionadas o conectadas a la entrada de un splitter."""
+        self.ensure_one()
+        fibers = cable.fiber_ids
+        if not self.node_id or not fibers:
+            return fibers
+
+        occupied_lines = self._used_lines_for_fibers(fibers).filtered(
+            lambda line: line.line_type in ("fusion", "splitter")
+        )
+        occupied = occupied_lines.mapped("input_fiber_id") | occupied_lines.mapped("output_fiber_id")
+        occupied |= self.env["fiber.gis.splitter"].search([
+            ("node_id", "=", self.node_id.id),
+            ("input_fiber_id", "in", fibers.ids),
+        ]).mapped("input_fiber_id")
+
+        available = fibers - occupied
+        preserved = self.source_fiber_id | self.source_line_id.input_fiber_id | self.source_line_id.output_fiber_id
+        preserved = preserved.filtered(lambda fiber: fiber.cable_id == cable)
+        return (available | preserved).sorted(lambda fiber: (fiber.tube or 0, fiber.number, fiber.id))
 
     @api.depends(
         "node_id",
         "drop_cable_id",
         "customer_splitter_id",
         "target_splitter_id",
+        "node_id.tray_ids.line_ids.input_fiber_id",
+        "node_id.tray_ids.line_ids.output_fiber_id",
+        "node_id.splitter_ids.input_fiber_id",
+        "node_id.splitter_ids.output_ids.output_fiber_id",
+        "node_id.port_ids.fiber_id",
     )
     def _compute_splitter_and_drop_options(self):
+        """Actualiza las opciones de splitters, salidas y acometidas del elemento."""
         empty_cables = self.env["fiber.gis.cable"]
         empty_fibers = self.env["fiber.gis.cable.fiber"]
         empty_splitters = self.env["fiber.gis.splitter"]
@@ -265,7 +319,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
             ])
             wizard.available_drop_cable_ids = drop_cables
             wizard.available_drop_fiber_ids = (
-                wizard.drop_cable_id.fiber_ids
+                wizard._available_fibers_for_cable(wizard.drop_cable_id)
                 if wizard.drop_cable_id in drop_cables
                 else empty_fibers
             )
@@ -287,6 +341,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("cable_id")
     def _onchange_cable_id(self):
+        """Recalcula los campos del formulario al cambiar «cable identificador», antes de guardar el registro."""
         for wizard in self:
             if wizard.cable_id:
                 wizard.cable_id.action_generate_fibers()
@@ -296,17 +351,60 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 wizard.selected_fiber_ids = False
                 wizard.fusion_input_fiber_id = False
                 wizard.fusion_input_fiber_ids = False
+                if wizard.pass_output_cable_id == wizard.cable_id:
+                    wizard.pass_output_cable_id = False
+                if wizard.operation == "pass":
+                    wizard.pass_output_cable_id = wizard._default_pass_output_cable()
 
     @api.onchange("other_cable_id")
     def _onchange_other_cable_id(self):
+        """Recalcula los campos del formulario al cambiar «otro cable identificador», antes de guardar el registro."""
         for wizard in self:
             if wizard.other_cable_id:
                 wizard.other_cable_id.action_generate_fibers()
                 wizard.fusion_output_fiber_id = False
                 wizard.fusion_output_fiber_ids = False
 
+    @api.onchange("pass_output_cable_id")
+    def _onchange_pass_output_cable_id(self):
+        for wizard in self:
+            if wizard.pass_output_cable_id:
+                wizard.pass_output_cable_id.action_generate_fibers()
+
+    def _default_pass_output_cable(self):
+        """Elige un tramo saliente real compatible con los tubos y fibras del cable entrante."""
+        self.ensure_one()
+        if not self.node_id or not self.cable_id:
+            return self.env["fiber.gis.cable"]
+        candidates = self.node_id.outgoing_cable_ids.filtered(lambda cable: cable != self.cable_id)
+        if not candidates:
+            return self.env["fiber.gis.cable"]
+        source = self.cable_id
+        candidates = candidates.filtered(
+            lambda cable: (
+                cable.total_fiber_count == source.total_fiber_count
+                and cable.tube_count == source.tube_count
+                and cable.fiber_count == source.fiber_count
+            )
+        )
+        if not candidates:
+            return self.env["fiber.gis.cable"]
+
+        def compatibility(cable):
+            # Entre tramos compatibles se prioriza el que tenga una tipología definida.
+            return (
+                bool(cable.profile_id),
+                -(cable.id or 0),
+            )
+
+        selected = candidates.sorted(key=compatibility, reverse=True)[:1]
+        if selected:
+            selected.action_generate_fibers()
+        return selected
+
     @api.onchange("drop_cable_id")
     def _onchange_drop_cable_id(self):
+        """Recalcula los campos del formulario al cambiar «acometida cable identificador», antes de guardar el registro."""
         for wizard in self:
             if wizard.drop_cable_id:
                 wizard.drop_cable_id.action_generate_fibers()
@@ -314,6 +412,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("customer_splitter_id")
     def _onchange_customer_splitter_id(self):
+        """Recalcula los campos del formulario al cambiar «cliente splitter identificador», antes de guardar el registro."""
         for wizard in self:
             wizard.customer_splitter_output_id = False
             if wizard.customer_splitter_id:
@@ -325,6 +424,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("target_splitter_id")
     def _onchange_target_splitter_id(self):
+        """Recalcula los campos del formulario al cambiar «destino splitter identificador», antes de guardar el registro."""
         for wizard in self:
             wizard.target_splitter_output_id = False
             if wizard.target_splitter_id:
@@ -332,6 +432,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("customer_drop_source")
     def _onchange_customer_drop_source(self):
+        """Recalcula los campos del formulario al cambiar «cliente acometida origen», antes de guardar el registro."""
         for wizard in self:
             wizard.selected_fiber_ids = False
             wizard.customer_splitter_id = False
@@ -339,6 +440,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("customer_id")
     def _onchange_customer_id(self):
+        """Recalcula los campos del formulario al cambiar «cliente identificador», antes de guardar el registro."""
         for wizard in self:
             wizard.drop_cable_id = False
             wizard.drop_fiber_ids = False
@@ -364,6 +466,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("splitter_ratio")
     def _onchange_splitter_ratio(self):
+        """Recalcula los campos del formulario al cambiar «splitter relación», antes de guardar el registro."""
         splitter_model = self.env["fiber.gis.splitter"]
         for wizard in self:
             wizard.splitter_loss_db = splitter_model.get_default_nominal_loss_db(
@@ -372,19 +475,36 @@ class FiberGisCableTrayWizard(models.TransientModel):
 
     @api.onchange("node_id")
     def _onchange_node_id(self):
+        """Recalcula los campos del formulario al cambiar «elemento de red identificador», antes de guardar el registro."""
         for wizard in self:
             if wizard.node_id and wizard.node_id.has_trays:
                 tray = wizard.node_id.tray_ids[:1]
                 wizard.tray_id = tray
-                wizard.pass_tray_id = tray
                 selected_cable = wizard.cable_id
                 if not wizard.cable_id:
-                    selected_cable = (wizard.node_id.incoming_cable_ids | wizard.node_id.outgoing_cable_ids)[:1]
+                    selected_cable = wizard.node_id.incoming_cable_ids[:1] or wizard.node_id.outgoing_cable_ids[:1]
                     wizard.cable_id = selected_cable
                 wizard.to_fiber = (selected_cable.total_fiber_count or 1) if selected_cable else 1
+                if wizard.operation == "pass":
+                    wizard.pass_output_cable_id = wizard._default_pass_output_cable()
+
+    @api.onchange("operation")
+    def _onchange_pass_operation_default_cable(self):
+        for wizard in self:
+            if wizard.operation == "pass":
+                if wizard.node_id and wizard.cable_id not in wizard.node_id.incoming_cable_ids:
+                    wizard.cable_id = wizard.node_id.incoming_cable_ids[:1]
+                    if wizard.cable_id:
+                        wizard.cable_id.action_generate_fibers()
+                        wizard.to_fiber = wizard.cable_id.total_fiber_count or 1
+                if not wizard.pass_output_cable_id or wizard.pass_output_cable_id == wizard.cable_id:
+                    wizard.pass_output_cable_id = wizard._default_pass_output_cable()
+            elif wizard.operation != "pass":
+                wizard.pass_output_cable_id = False
 
     @api.onchange("operation", "from_fiber")
     def _onchange_operation_single_fusion(self):
+        """Recalcula los campos del formulario al cambiar «operación individual fusión», antes de guardar el registro."""
         for wizard in self:
             if wizard.operation == "fusion":
                 wizard.to_fiber = wizard.from_fiber or 1
@@ -405,12 +525,15 @@ class FiberGisCableTrayWizard(models.TransientModel):
                     wizard.selected_fiber_ids = source
 
     def action_apply(self):
+        """Valida y registra en la bandeja la operación elegida en el asistente."""
         return self._action_apply(confirm_conflicts=False)
 
     def action_apply_confirmed(self):
+        """Confirma el aviso de conflicto y aplica la operación seleccionada sobre las fibras."""
         return self._action_apply(confirm_conflicts=True)
 
     def _action_apply(self, confirm_conflicts=False):
+        """Coordina la validación y el guardado de la operación seleccionada, y dirige los casos que requieren confirmación adicional."""
         self.ensure_one()
         self = self.with_context(fiber_gis_employee_id=self.employee_id.id or False)
         work_employee_id(self.env)
@@ -436,6 +559,8 @@ class FiberGisCableTrayWizard(models.TransientModel):
         })
         if self.operation == "rest":
             self._create_rest_lines()
+        elif self.operation == "pending_cancel":
+            self._create_pending_cancel_lines()
         elif self.operation == "fusion":
             self._create_fusion_lines()
         elif self.operation == "pass":
@@ -450,6 +575,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         return {"type": "ir.actions.act_window_close"}
 
     def _open_conflict_confirmation(self, conflicts):
+        """Abre una ventana de confirmación cuando la operación afecta a fibras que ya tienen una asignación."""
         self.ensure_one()
         return_model = self.env.context.get("active_model")
         return_res_id = self.env.context.get("active_id")
@@ -485,7 +611,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         "other_from_fiber",
         "tray_id",
         "other_tray_id",
-        "pass_tray_id",
+        "pass_output_cable_id",
         "splitter_ratio",
         "target_splitter_id",
         "target_splitter_output_id",
@@ -500,10 +626,12 @@ class FiberGisCableTrayWizard(models.TransientModel):
         "drop_fiber_ids",
     )
     def _compute_operation_preview_html(self):
+        """Calcula y actualiza «operación vista previa HTML» a partir de los datos actuales y sus relaciones."""
         for wizard in self:
             wizard.operation_preview_html = wizard._build_operation_preview_html()
 
     def _build_operation_preview_html(self):
+        """Construye «operación vista previa HTML» con los datos del modelo para mostrarlo o imprimirlo."""
         self.ensure_one()
         if not self.cable_id and not self._is_splitter_customer_drop():
             return "<div class='o_fiber_tray_empty'>Selecciona un cable para ver la previsualizacion.</div>"
@@ -551,6 +679,27 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 f"<span>&rarr;</span>{fiber_html}"
                 "</div>"
             )
+        elif self.operation == "pass":
+            pairs = self._pass_fiber_pairs(validate=False)
+            cut_numbers = self._selected_numbers_for_primary_cable()
+            if not self.pass_output_cable_id:
+                rows.append("<div class='o_fiber_tray_empty'>Selecciona el cable que va a la caja destino.</div>")
+            for input_fiber, output_fiber in pairs:
+                rows.append(
+                    "<div class='o_fiber_tray_preview_row'>"
+                    f"{self._preview_fiber_token(self.cable_id, input_fiber.number)}"
+                    "<span>&rarr;</span>"
+                    f"{self._preview_fiber_token(self.pass_output_cable_id, output_fiber.number)}"
+                    "</div>"
+                )
+            for number in cut_numbers:
+                rows.append(
+                    "<div class='o_fiber_tray_preview_row'>"
+                    f"{self._preview_fiber_token(self.cable_id, number)}"
+                    "<span>Fibra cortada en punta</span></div>"
+                )
+            if not pairs and not cut_numbers and self.pass_output_cable_id:
+                rows.append("<div class='o_fiber_tray_empty'>Selecciona fibras cortadas o comprueba los cables.</div>")
         elif self.operation == "customer_drop":
             drop_fiber = self.drop_fiber_ids[:1]
             if self.customer_drop_source == "splitter":
@@ -587,7 +736,10 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 "</div>"
             )
         else:
-            label = "Resto" if self.operation == "rest" else "Resto / paso"
+            label = {
+                "rest": "Fibra en punta",
+                "pending_cancel": "Fibra pendiente de anular",
+            }.get(self.operation, "Sangría con fibra cortada")
             selected_numbers = self._selected_numbers_for_primary_cable()
             if not selected_numbers:
                 rows.append("<div class='o_fiber_tray_empty'>Selecciona una o varias fibras.</div>")
@@ -607,6 +759,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         )
 
     def _preview_fiber_token(self, cable, number):
+        """Construye el indicador visual de una fibra para la previsualización del asistente."""
         if not cable or number < 1:
             return "<span class='o_fiber_preview_token is-empty'>Fibra no valida</span>"
         fiber = cable.fiber_ids.filtered(lambda item: item.number == number)[:1]
@@ -633,18 +786,19 @@ class FiberGisCableTrayWizard(models.TransientModel):
         )
 
     def _validate_common(self):
+        """Valida los datos generales necesarios antes de registrar la operación de bandeja."""
         self.ensure_one()
+        if not self.tray_id:
+            raise UserError("Selecciona la bandeja donde se registra el trabajo.")
         if self._is_splitter_customer_drop():
-            if self.tray_id and self.tray_id.node_id != self.node_id:
+            if self.tray_id.node_id != self.node_id:
                 raise UserError("La bandeja seleccionada no pertenece al elemento indicado.")
             return
+        if not self.cable_id:
+            raise UserError("Selecciona el cable relacionado con el trabajo.")
         to_fiber = self._effective_to_fiber()
         if self.node_id not in (self.cable_id.from_node_id | self.cable_id.to_node_id):
             raise UserError("El elemento debe ser uno de los extremos del cable.")
-        if not self.tray_id and self.operation in (
-            "rest", "fusion", "pass", "splitter", "splitter_fusion", "customer_drop"
-        ):
-            raise UserError("Selecciona la bandeja donde se registra el trabajo.")
         if self.tray_id and self.tray_id.node_id != self.node_id:
             raise UserError("La bandeja seleccionada no pertenece al elemento indicado.")
         if self.from_fiber < 1 or to_fiber < self.from_fiber:
@@ -653,10 +807,12 @@ class FiberGisCableTrayWizard(models.TransientModel):
             raise UserError("El rango supera el numero de fibras del cable.")
 
     def _is_splitter_customer_drop(self):
+        """Indica si la conexión seleccionada corresponde a una acometida de cliente desde un splitter."""
         self.ensure_one()
         return self.operation == "customer_drop" and self.customer_drop_source == "splitter"
 
     def _validate_fiber_selection(self):
+        """Comprueba que las fibras seleccionadas sean válidas para la operación elegida."""
         self.ensure_one()
         if self.operation == "fusion":
             input_fiber = self._fusion_input_fiber()
@@ -673,6 +829,9 @@ class FiberGisCableTrayWizard(models.TransientModel):
         if self.operation == "customer_drop":
             self._validate_customer_drop_selection()
             return
+        if self.operation == "pass":
+            self._validate_pass_cables()
+            return
         if self.operation == "splitter_fusion":
             self._validate_splitter_fusion_selection()
             return
@@ -685,6 +844,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
             raise UserError("Hay fibras seleccionadas que no pertenecen al cable indicado.")
 
     def _validate_splitter_fusion_selection(self):
+        """Comprueba que se hayan seleccionado las fibras necesarias para enlazar dos splitters."""
         self.ensure_one()
         if not self.target_splitter_id or not self.target_splitter_output_id:
             raise UserError("Selecciona el splitter y una boca libre.")
@@ -717,45 +877,111 @@ class FiberGisCableTrayWizard(models.TransientModel):
             )
 
     def _effective_to_fiber(self):
+        """Resuelve el número final de fibra considerando la selección individual o el intervalo introducido."""
         self.ensure_one()
         return self.from_fiber if self.operation == "fusion" else self.to_fiber
 
+    def _validate_pass_cables(self):
+        """Valida los dos tramos que atraviesan el elemento y su correspondencia de fibras."""
+        self.ensure_one()
+        output_cable = self.pass_output_cable_id
+        if not output_cable:
+            raise UserError("Selecciona el cable que va a la caja destino.")
+        if output_cable == self.cable_id:
+            raise UserError("El cable de entrada y el de salida deben ser distintos.")
+        if self.node_id not in (output_cable.from_node_id | output_cable.to_node_id):
+            raise UserError("El cable que va a la caja destino no está conectado al elemento actual.")
+        if self.node_id == output_cable.to_node_id:
+            raise UserError("El cable de salida debe ir desde esta caja hacia la caja destino.")
+        if self.node_id != self.cable_id.to_node_id:
+            raise UserError("El cable que viene de otra caja debe llegar al elemento actual.")
+        wrong_fibers = self.selected_fiber_ids.filtered(lambda fiber: fiber.cable_id != self.cable_id)
+        if wrong_fibers:
+            raise UserError("Las fibras cortadas deben pertenecer al cable que viene de la caja anterior.")
+        pairs = self._pass_fiber_pairs(validate=True)
+        if not pairs:
+            raise UserError("No hay fibras continuas entre los dos cables. Selecciona fibras cortadas en punta o revisa la correspondencia.")
+
+    def _pass_fiber_pairs(self, validate=False):
+        """Empareja por número las fibras no cortadas del cable entrante y el cable saliente."""
+        self.ensure_one()
+        if not self.cable_id or not self.pass_output_cable_id:
+            return []
+        self.cable_id.action_generate_fibers()
+        self.pass_output_cable_id.action_generate_fibers()
+        cut_ids = set(self.selected_fiber_ids.filtered(lambda fiber: fiber.cable_id == self.cable_id).ids)
+        output_by_number = {fiber.number: fiber for fiber in self.pass_output_cable_id.fiber_ids}
+        pairs = []
+        missing = []
+        for input_fiber in self.cable_id.fiber_ids:
+            if input_fiber.id in cut_ids:
+                continue
+            output_fiber = output_by_number.get(input_fiber.number)
+            if output_fiber:
+                pairs.append((input_fiber, output_fiber))
+            else:
+                missing.append(input_fiber.number)
+        if validate and missing:
+            preview = ", ".join(str(number) for number in missing[:8])
+            suffix = "…" if len(missing) > 8 else ""
+            raise UserError(
+                "No existe la misma numeración de fibra en el cable de salida para: "
+                f"{preview}{suffix}. Marca esas fibras como cortadas o corrige los cables."
+            )
+        return pairs
+
     def _selected_numbers_for_primary_cable(self):
+        """Devuelve los números de las fibras seleccionadas en el cable principal."""
         self.ensure_one()
         if self.selected_fiber_ids:
             return sorted(self.selected_fiber_ids.filtered(lambda fiber: fiber.cable_id == self.cable_id).mapped("number"))
         return []
 
     def _fusion_input_fiber(self):
+        """Obtiene la fibra seleccionada como entrada de la fusión."""
         self.ensure_one()
         return self.fusion_input_fiber_ids[:1] or self.fusion_input_fiber_id
 
     def _fusion_output_fiber(self):
+        """Obtiene la fibra seleccionada como salida de la fusión."""
         self.ensure_one()
         return self.fusion_output_fiber_ids[:1] or self.fusion_output_fiber_id
 
     def _fusion_input_number(self):
+        """Devuelve el número de la fibra de entrada elegida para la fusión."""
         self.ensure_one()
         fiber = self._fusion_input_fiber()
         return fiber.number if fiber else 0
 
     def _fusion_output_number(self):
+        """Devuelve el número de la fibra de salida elegida para la fusión."""
         self.ensure_one()
         fiber = self._fusion_output_fiber()
         return fiber.number if fiber else 0
 
     def _fiber_by_number(self, cable, number):
+        """Busca una fibra del cable por su número y devuelve el registro correspondiente."""
         cable.action_generate_fibers()
         fiber = cable.fiber_ids.filtered(lambda item: item.number == number)[:1]
         if not fiber:
             raise UserError(f"No se ha encontrado la fibra {number} en {cable.display_name}.")
         return fiber
 
+    def _directional_cable_name(self, cable):
+        """Muestra el cable desde la caja actual con dirección, caja vecina y boca."""
+        self.ensure_one()
+        return cable.with_context(
+            fiber_gis_node_id=self.node_id.id,
+            fiber_gis_show_boca=True,
+        ).display_name
+
     def _next_position(self, tray):
+        """Calcula la siguiente posición libre de la bandeja para registrar la operación."""
         positions = tray.line_ids.mapped("position")
         return (max(positions) if positions else 0) + 1
 
     def _create_line(self, tray, values):
+        """Crea «línea» y enlaza los registros necesarios para mantener la trazabilidad."""
         values.setdefault("employee_id", self.employee_id.id or False)
         values.setdefault("position", self._next_position(tray))
         values.setdefault("tray_id", tray.id)
@@ -763,16 +989,11 @@ class FiberGisCableTrayWizard(models.TransientModel):
         return self.env["fiber.gis.tray.line"].create(values)
 
     def _check_tray_capacity(self, tray, positions_needed, line_type):
-        if line_type == "free":
-            return
-        effective_capacity = max(tray.capacity or 0, 30) if tray else 0
-        if tray and effective_capacity and tray.used_positions + positions_needed > effective_capacity:
-            raise UserError(
-                f"La bandeja {tray.display_name} no tiene posiciones libres suficientes. "
-                f"Libres: {tray.free_positions}, necesarias: {positions_needed}."
-            )
+        """Conserva el punto de extensión histórico sin limitar el número de registros."""
+        return
 
     def _check_fibers_available(self, fibers):
+        """Comprueba que las fibras seleccionadas estén disponibles para la operación elegida."""
         fibers = fibers.filtered(lambda fiber: fiber)
         if not fibers:
             return
@@ -785,8 +1006,21 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 f"La fibra {fiber.number} del cable {fiber.cable_id.display_name} ya esta registrada "
                 f"en {used.tray_id.display_name} como {line_type}."
             )
+        splitter_input = self.env["fiber.gis.splitter"].search([
+            ("node_id", "=", self.node_id.id), ("input_fiber_id", "in", fibers.ids),
+        ], limit=1)
+        splitter_output = self.env["fiber.gis.splitter.output"].search([
+            ("splitter_id.node_id", "=", self.node_id.id),
+            ("output_fiber_id", "in", fibers.ids),
+        ], limit=1)
+        if splitter_input or splitter_output:
+            splitter = splitter_input or splitter_output.splitter_id
+            raise UserError(
+                f"Una de las fibras seleccionadas ya está conectada al splitter {splitter.display_name}."
+            )
 
     def _used_lines_for_fibers(self, fibers):
+        """Busca las líneas de bandeja que ya contienen alguna de las fibras seleccionadas."""
         fibers = fibers.filtered(lambda fiber: fiber)
         if not fibers:
             return self.env["fiber.gis.tray.line"]
@@ -798,6 +1032,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         ])
 
     def _operation_fibers(self):
+        """Reúne las fibras que intervienen en la operación del asistente."""
         self.ensure_one()
         if self.operation == "fusion":
             if not self.other_cable_id:
@@ -807,7 +1042,11 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 | self._fiber_by_number(self.other_cable_id, self._fusion_output_number())
             )
         if self.operation == "pass":
-            return self._fibers_in_range(self.cable_id, 1, self.cable_id.total_fiber_count or 1)
+            input_fibers = self.cable_id.fiber_ids
+            paired_output = self.env["fiber.gis.cable.fiber"].browse(
+                [output.id for _input, output in self._pass_fiber_pairs(validate=False)]
+            )
+            return input_fibers | paired_output
         if self.operation == "customer_drop":
             drop_fiber = self.drop_fiber_ids[:1]
             if self.customer_drop_source == "splitter":
@@ -818,9 +1057,11 @@ class FiberGisCableTrayWizard(models.TransientModel):
         return self.env["fiber.gis.cable.fiber"]
 
     def _operation_conflict_lines(self):
+        """Busca las asignaciones de bandeja existentes que se verían afectadas por la operación."""
         return self._used_lines_for_fibers(self._operation_fibers())
 
     def _build_conflict_warning_html(self, conflicts):
+        """Prepara el aviso visual con el detalle de las asignaciones de fibra que cambiarían."""
         labels = dict(self.env["fiber.gis.tray.line"]._fields["line_type"].selection)
         rows = []
         for line in conflicts[:12]:
@@ -847,11 +1088,13 @@ class FiberGisCableTrayWizard(models.TransientModel):
         )
 
     def _fibers_in_range(self, cable, first, last):
+        """Devuelve las fibras comprendidas entre los números inicial y final indicados."""
         return self.env["fiber.gis.cable.fiber"].browse([
             self._fiber_by_number(cable, number).id for number in range(first, last + 1)
         ])
 
     def _create_rest_lines(self):
+        """Registra en la bandeja cada fibra seleccionada que queda como resto."""
         fibers = self._operation_fibers()
         if not fibers:
             raise UserError("Selecciona al menos una fibra.")
@@ -863,7 +1106,21 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 "input_fiber_id": self._fiber_by_number(self.cable_id, number).id,
             })
 
+    def _create_pending_cancel_lines(self):
+        """Marca las fibras seleccionadas como pendientes de anular, sin consumir capacidad de empalme."""
+        fibers = self._operation_fibers()
+        if not fibers:
+            raise UserError("Selecciona al menos una fibra.")
+        self._check_tray_capacity(self.tray_id, len(fibers), "pending_cancel")
+        self._check_fibers_available(fibers)
+        for fiber in fibers.sorted(lambda item: (item.tube, item.number)):
+            self._create_line(self.tray_id, {
+                "line_type": "pending_cancel",
+                "input_fiber_id": fiber.id,
+            })
+
     def _create_fusion_lines(self):
+        """Registra una fusion individual por cada pareja de fibras seleccionada."""
         if not self.other_cable_id:
             raise UserError("Selecciona el cable con el que se va a fusionar.")
         if self.other_cable_id == self.cable_id:
@@ -889,35 +1146,28 @@ class FiberGisCableTrayWizard(models.TransientModel):
         })
 
     def _create_pass_lines(self):
-        if not self.pass_tray_id:
-            raise UserError("Selecciona la bandeja donde queda el cable de paso.")
-        if self.pass_tray_id.node_id != self.node_id:
-            raise UserError("La bandeja de paso debe pertenecer al elemento indicado.")
-        rest_numbers = set(self._selected_numbers_for_primary_cable())
-        if not rest_numbers:
-            raise UserError("Selecciona al menos una fibra que quedara en resto.")
-        all_fibers = self._fibers_in_range(self.cable_id, 1, self.cable_id.total_fiber_count or 1)
-        rest_count = len(rest_numbers)
-        pass_count = max((self.cable_id.total_fiber_count or 0) - rest_count, 0)
-        if self.tray_id == self.pass_tray_id:
-            self._check_tray_capacity(self.tray_id, pass_count, "pass")
-        else:
-            self._check_tray_capacity(self.tray_id, rest_count, "free")
-            self._check_tray_capacity(self.pass_tray_id, pass_count, "pass")
-        self._check_fibers_available(all_fibers)
-        for number in range(1, (self.cable_id.total_fiber_count or 0) + 1):
-            if number in rest_numbers:
-                self._create_line(self.tray_id, {
-                    "line_type": "free",
-                    "input_fiber_id": self._fiber_by_number(self.cable_id, number).id,
-                })
-            else:
-                self._create_line(self.pass_tray_id, {
-                    "line_type": "pass",
-                    "input_fiber_id": self._fiber_by_number(self.cable_id, number).id,
-                })
+        """Registra continuidad entrante-saliente y deja las fibras cortadas disponibles en punta."""
+        pairs = self._pass_fiber_pairs(validate=True)
+        cut_fibers = self.selected_fiber_ids.filtered(lambda fiber: fiber.cable_id == self.cable_id)
+        if not pairs and not cut_fibers:
+            raise UserError("Selecciona las fibras cortadas o comprueba la correspondencia de cables.")
+        self._check_tray_capacity(self.tray_id, len(pairs), "pass")
+        affected = self._operation_fibers()
+        self._check_fibers_available(affected)
+        for input_fiber, output_fiber in pairs:
+            self._create_line(self.tray_id, {
+                "line_type": "pass",
+                "input_fiber_id": input_fiber.id,
+                "output_fiber_id": output_fiber.id,
+            })
+        for fiber in cut_fibers.sorted(lambda item: (item.tube or 0, item.number)):
+            self._create_line(self.tray_id, {
+                "line_type": "free",
+                "input_fiber_id": fiber.id,
+            })
 
     def _create_splitter_lines(self):
+        """Registra en la bandeja la conexión de las fibras seleccionadas con el splitter."""
         if not self.splitter_ratio:
             raise UserError("Selecciona la relacion del splitter.")
         fibers = self._operation_fibers()
@@ -940,6 +1190,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         self.env["fiber.gis.splitter"].create(values)
 
     def _validate_customer_drop_origin(self):
+        """Comprueba «cliente acometida origen» y evita continuar si la selección o los datos no son válidos."""
         self.ensure_one()
         if not self.customer_id:
             raise UserError("Selecciona el cliente al que llega la acometida.")
@@ -948,6 +1199,8 @@ class FiberGisCableTrayWizard(models.TransientModel):
                 raise UserError("Selecciona el splitter y una salida libre.")
             if self.customer_splitter_id.node_id != self.node_id:
                 raise UserError("El splitter no pertenece al elemento actual.")
+            if self.customer_splitter_id.tray_id != self.tray_id:
+                raise UserError("Selecciona la bandeja donde está instalado el splitter.")
             if self.customer_splitter_output_id.splitter_id != self.customer_splitter_id:
                 raise UserError("La salida no pertenece al splitter seleccionado.")
             if (
@@ -962,6 +1215,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
             raise UserError("La fibra de origen no pertenece al cable indicado.")
 
     def _prepare_customer_drop(self):
+        """Prepara «cliente acometida» y aplica los valores derivados necesarios antes de persistirlos."""
         self.ensure_one()
         self._validate_customer_drop_origin()
         endpoint, drop_cable, drop_fiber = self.node_id._ensure_customer_drop(
@@ -979,6 +1233,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         })
 
     def _validate_customer_drop_selection(self):
+        """Comprueba «cliente acometida selección» y evita continuar si la selección o los datos no son válidos."""
         self.ensure_one()
         self._validate_customer_drop_origin()
         if not self.drop_cable_id:
@@ -1001,6 +1256,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
             raise UserError("La fibra de origen y la acometida deben pertenecer a cables distintos.")
 
     def _create_customer_drop_connection(self):
+        """Crea la conexión entre la salida del splitter y la acometida del cliente."""
         self.ensure_one()
         drop_fiber = self.drop_fiber_ids[:1]
         if self.customer_drop_source == "splitter":
@@ -1020,6 +1276,7 @@ class FiberGisCableTrayWizard(models.TransientModel):
         })
 
     def _create_splitter_fusion_connection(self):
+        """Registra la conexión de fibra entre dos splitters."""
         self.ensure_one()
         fiber = self.selected_fiber_ids[:1]
         self._check_fibers_available(fiber)
@@ -1030,9 +1287,14 @@ class FiberGisCableTrayWizard(models.TransientModel):
         )
 
     def _work_log_text(self):
-        labels = dict(self._fields["operation"].selection)
+        """Compone el texto legible que se guarda en el historial del trabajo."""
+        labels = dict(self._fields["operation"]._description_selection(self.env))
         if self.operation == "fusion":
             detail = f"fibra {self._fusion_input_number()} con fibra {self._fusion_output_number()}."
+        elif self.operation == "pass":
+            pairs = self._pass_fiber_pairs(validate=False)
+            cut_count = len(self.selected_fiber_ids.filtered(lambda fiber: fiber.cable_id == self.cable_id))
+            detail = f"{len(pairs)} fibras continúan; {cut_count} quedan en punta."
         elif self.operation == "splitter_fusion":
             fiber = self.selected_fiber_ids[:1]
             detail = (
@@ -1057,9 +1319,15 @@ class FiberGisCableTrayWizard(models.TransientModel):
             detail = f"fibras {', '.join(str(number) for number in self._selected_numbers_for_primary_cable())}."
         else:
             detail = f"fibras {self.from_fiber}-{self.to_fiber}."
+        cable_label = self.cable_id.display_name or ""
+        if self.operation == "pass":
+            cable_label = (
+                f"{self._directional_cable_name(self.cable_id)} -> "
+                f"{self._directional_cable_name(self.pass_output_cable_id)}"
+            )
         return (
             f"{labels.get(self.operation)} en {self.tray_id.display_name or ''}. "
-            f"Cable {self.cable_id.display_name or ''}, {detail}"
+            f"Cable {cable_label}, {detail}"
         )
 
 
@@ -1082,6 +1350,7 @@ class FiberGisCableTrayConfirmWizard(models.TransientModel):
     return_res_id = fields.Integer(string="Registro de retorno", readonly=True)
 
     def action_confirm(self):
+        """Confirma y ejecuta la operación del asistente."""
         self.ensure_one()
         tray_wizard = self.tray_wizard_id.exists()
         if not tray_wizard:

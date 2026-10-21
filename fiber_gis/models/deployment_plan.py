@@ -1,20 +1,20 @@
 """Planificaci\u00f3n previa de despliegues de fibra y documentaci\u00f3n para campo."""
 
-import base64
 import html
-import math
 import re
-import urllib.error
-import urllib.parse
-import urllib.request
 from collections import defaultdict
 
 from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-CATASTRO_WMS_URL = "https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx"
-WEB_MERCATOR_LIMIT = 20037508.342789244
+from .map_geometry import (
+    catastro_wms_png_data_uri,
+    fit_bbox_to_aspect,
+    latlon_to_web_mercator,
+    project_map_point,
+)
+
 SAFE_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -114,6 +114,7 @@ class FiberGisDeploymentPlan(models.Model):
         "reserve_percent",
     )
     def _compute_metrics(self):
+        """Calcula y actualiza «métricas» a partir de los datos actuales y sus relaciones."""
         for plan in self:
             scope_nodes = plan._scope_nodes()
             plan.node_count = len(plan.node_ids)
@@ -130,6 +131,7 @@ class FiberGisDeploymentPlan(models.Model):
             )
 
     def _scope_nodes(self):
+        """Obtiene los elementos incluidos en el plan y añade los que participan en sus cables asociados."""
         self.ensure_one()
         return (
             self.node_ids
@@ -138,6 +140,7 @@ class FiberGisDeploymentPlan(models.Model):
         ).exists()
 
     def action_open_map(self):
+        """Abre el registro seleccionado en el mapa de Fiber GIS."""
         self.ensure_one()
         return {
             "type": "ir.actions.client",
@@ -149,6 +152,7 @@ class FiberGisDeploymentPlan(models.Model):
         }
 
     def action_print_pdf(self):
+        """Genera y descarga el informe PDF correspondiente."""
         self.ensure_one()
         if not self.node_ids and not self.cable_ids:
             raise UserError("A\u00f1ade al menos un elemento o un cable antes de imprimir el plan.")
@@ -156,6 +160,7 @@ class FiberGisDeploymentPlan(models.Model):
 
     @api.model
     def action_print_plan_pdf(self, plan_id):
+        """Genera el plano PDF del plan de despliegue."""
         plan = self.browse(plan_id).exists()
         if not plan:
             raise UserError("El plan de despliegue ya no existe.")
@@ -163,6 +168,7 @@ class FiberGisDeploymentPlan(models.Model):
 
     @api.model
     def get_map_scope(self, plan_id):
+        """Devuelve los identificadores de elementos y cables que debe mostrar el plano del despliegue."""
         plan = self.browse(plan_id).exists()
         if not plan:
             raise UserError("El plan de despliegue ya no existe.")
@@ -188,24 +194,31 @@ class FiberGisDeploymentPlan(models.Model):
         }
 
     def action_submit_review(self):
+        """Ejecuta la acción de usuario «envío revisión» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "review"})
 
     def action_approve(self):
+        """Ejecuta la acción de usuario «aprobación» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "approved"})
 
     def action_start(self):
+        """Ejecuta la acción de usuario «inicio» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "in_progress"})
 
     def action_finish(self):
+        """Ejecuta la acción de usuario «finalización» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "done"})
 
     def action_cancel(self):
+        """Ejecuta la acción de usuario «cancelación» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "cancelled"})
 
     def action_reset_draft(self):
+        """Ejecuta la acción de usuario «restablecimiento draft» y devuelve el resultado correspondiente a Odoo."""
         self.write({"state": "draft"})
 
     def _get_report_data(self):
+        """Obtiene «report datos» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         state_labels = dict(self._fields["state"].selection)
         route_labels = dict(self.env["fiber.gis.cable"]._fields["route_kind"].selection)
@@ -286,6 +299,7 @@ class FiberGisDeploymentPlan(models.Model):
         }
 
     def _get_plan_map_svg(self):
+        """Obtiene «plan mapa SVG» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         nodes = self._scope_nodes().sorted(lambda node: (node.display_name or "").lower())
         cable_routes = []
@@ -307,26 +321,20 @@ class FiberGisDeploymentPlan(models.Model):
         height = 520
         image_width = 2200
         image_height = 1040
-        mercator_points = [self._latlon_to_web_mercator(lat, lon) for lat, lon in points]
+        mercator_points = [latlon_to_web_mercator(lat, lon) for lat, lon in points]
         min_x = min(point[0] for point in mercator_points)
         max_x = max(point[0] for point in mercator_points)
         min_y = min(point[1] for point in mercator_points)
         max_y = max(point[1] for point in mercator_points)
         x_pad = max((max_x - min_x) * 0.08, 35)
         y_pad = max((max_y - min_y) * 0.08, 35)
-        min_x, min_y, max_x, max_y = self._fit_bbox_to_aspect(
+        min_x, min_y, max_x, max_y = fit_bbox_to_aspect(
             min_x - x_pad,
             min_y - y_pad,
             max_x + x_pad,
             max_y + y_pad,
             width / height,
         )
-
-        def project(lat, lon):
-            mercator_x, mercator_y = self._latlon_to_web_mercator(lat, lon)
-            x = ((mercator_x - min_x) / max(max_x - min_x, 0.000001)) * width
-            y = ((max_y - mercator_y) / max(max_y - min_y, 0.000001)) * height
-            return round(x, 1), round(y, 1)
 
         catastro_image = self._catastro_image(
             min_x,
@@ -339,7 +347,10 @@ class FiberGisDeploymentPlan(models.Model):
         route_shadows = []
         route_lines = []
         for cable, route in cable_routes:
-            coordinates = [project(lat, lon) for lat, lon in route]
+            coordinates = [
+                project_map_point(lat, lon, min_x, min_y, max_x, max_y, width, height)
+                for lat, lon in route
+            ]
             kinds = cable._get_route_segment_kinds(len(coordinates) - 1)
             color = cable.color if SAFE_COLOR.match(cable.color or "") else "#d946ef"
             for index, (start, end) in enumerate(zip(coordinates, coordinates[1:])):
@@ -364,7 +375,9 @@ class FiberGisDeploymentPlan(models.Model):
         for sequence, node in enumerate(nodes, start=1):
             if not node.latitude or not node.longitude:
                 continue
-            x, y = project(node.latitude, node.longitude)
+            x, y = project_map_point(
+                node.latitude, node.longitude, min_x, min_y, max_x, max_y, width, height
+            )
             label = html.escape(node.display_name or "")
             node_marks.append(
                 f"<circle cx='{x}' cy='{y}' r='7' class='plan-node'/>"
@@ -395,68 +408,19 @@ class FiberGisDeploymentPlan(models.Model):
         )
 
     @staticmethod
-    def _latlon_to_web_mercator(lat, lon):
-        clipped_lat = max(min(lat, 85.05112878), -85.05112878)
-        x = lon * WEB_MERCATOR_LIMIT / 180.0
-        y = math.log(
-            math.tan((90.0 + clipped_lat) * math.pi / 360.0)
-        ) * WEB_MERCATOR_LIMIT / math.pi
-        return x, y
-
-    @staticmethod
-    def _fit_bbox_to_aspect(min_x, min_y, max_x, max_y, target_aspect):
-        bbox_width = max(max_x - min_x, 1)
-        bbox_height = max(max_y - min_y, 1)
-        center_x = (min_x + max_x) / 2
-        center_y = (min_y + max_y) / 2
-        if bbox_width / bbox_height < target_aspect:
-            bbox_width = bbox_height * target_aspect
-        else:
-            bbox_height = bbox_width / target_aspect
-        return (
-            center_x - bbox_width / 2,
-            center_y - bbox_height / 2,
-            center_x + bbox_width / 2,
-            center_y + bbox_height / 2,
-        )
-
-    @staticmethod
     def _catastro_image(min_x, min_y, max_x, max_y, width, height):
-        params = urllib.parse.urlencode({
-            "SERVICE": "WMS",
-            "VERSION": "1.1.1",
-            "REQUEST": "GetMap",
-            "FORMAT": "image/png",
-            "TRANSPARENT": "FALSE",
-            "SRS": "EPSG:3857",
-            "LAYERS": "Catastro",
-            "STYLES": "",
-            "BBOX": f"{min_x},{min_y},{max_x},{max_y}",
-            "WIDTH": str(width),
-            "HEIGHT": str(height),
-        })
-        request = urllib.request.Request(
-            f"{CATASTRO_WMS_URL}?{params}",
-            headers={"User-Agent": "Odoo Fiber GIS deployment plan report"},
+        """Solicita la cartografía catastral para el área del plan y prepara la imagen del plano."""
+        image_uri = catastro_wms_png_data_uri(
+            min_x, min_y, max_x, max_y, width, height,
+            "Odoo Fiber GIS deployment plan report", timeout=25,
         )
-        try:
-            with urllib.request.urlopen(request, timeout=25) as response:
-                payload = response.read()
-                content_type = response.headers.get("Content-Type", "image/png")
-        except (urllib.error.URLError, TimeoutError):
+        if not image_uri:
             return (
                 f"<div class='plan-map-note' style='height:{height}px;background:#f8fafc;'>"
                 "No se ha podido cargar Catastro para este plano."
                 "</div>"
             )
-        if not payload.startswith(b"\x89PNG"):
-            return (
-                f"<div class='plan-map-note' style='height:{height}px;background:#f8fafc;'>"
-                "Catastro no ha devuelto una imagen v\u00e1lida."
-                "</div>"
-            )
-        encoded = base64.b64encode(payload).decode("ascii")
         return (
-            f"<img class='plan-map-base' src='data:{content_type};base64,{encoded}' "
+            f"<img class='plan-map-base' src='{image_uri}' "
             "alt='Plano del Catastro'/>"
         )

@@ -38,6 +38,12 @@ def method(module, name):
     function.decorator_list = []
     namespace = {"html": html, "UserError": ValueError,
                  "fields": SimpleNamespace(Command=SimpleNamespace(set=lambda ids: (6, 0, ids)))}
+    if module == "splitter.py" and name == "_upstream_fiber":
+        chain_helper = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "splitter_upstream_chain"
+        )
+        exec(compile(ast.Module(body=[chain_helper], type_ignores=[]), module, "exec"), namespace)
     exec(compile(ast.Module(body=[function], type_ignores=[]), module, "exec"), namespace)
     return namespace[name]
 
@@ -141,6 +147,40 @@ def samples():
 
 
 class TrayInteractionChecks(unittest.TestCase):
+    def test_splitter_connection_picker_shows_cable_direction_and_all_fiber_summaries(self):
+        view = etree.parse(str(ROOT / "views/fiber_gis_splitter_views.xml"))
+        cable = view.xpath("//field[@name='cable_id'][@string='Cable hacia / desde']")[0]
+        self.assertIn("fiber_gis_node_id", cable.get("context"))
+        self.assertIn("fiber_gis_show_boca", cable.get("context"))
+        source = (ROOT / "models/splitter_drop_wizard.py").read_text(encoding="utf-8")
+        for required in ("for fiber in fibers.sorted(\"number\")", "_endpoint_connections(cable.from_node_id)",
+                         "_endpoint_connections(cable.to_node_id)", "_fiber_html(", "_fiber_remote_label(fiber)"):
+            self.assertIn(required, source)
+
+    def test_tray_visual_omits_position_and_sorts_by_work_type(self):
+        source = (ROOT / "models/node.py").read_text(encoding="utf-8")
+        expected = {
+            '"splitter": 0': 0,
+            '"fusion": 1': 1,
+            '"free": 2': 2,
+            '"pending_cancel": 2': 2,
+            '"pass": 3': 3,
+        }
+        positions = [source.index(label) for label in expected]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("tray_line_priority.get(item.line_type, 4), item.position, item.id", source)
+        visual_method = source.split("    def _tray_line_visual_html(", 1)[1].split("    def _fiber_endpoint_html(", 1)[0]
+        self.assertNotIn("o_fiber_tray_pos", visual_method)
+
+    def test_work_log_resolves_method_based_operation_selection(self):
+        source = (ROOT / "models/cable_tray_wizard.py").read_text(encoding="utf-8")
+        self.assertIn('selection="_selection_operation"', source)
+        self.assertIn(
+            'dict(self._fields["operation"]._description_selection(self.env))',
+            source,
+        )
+        self.assertNotIn('dict(self._fields["operation"].selection)', source)
+
     def test_raw_actions_include_form_views(self):
         for name, sample in action_samples().items():
             with self.subTest(action=name):
@@ -205,6 +245,55 @@ class TrayInteractionChecks(unittest.TestCase):
         self.assertTrue(doc.xpath("//button[@name='action_disconnect']/@confirm"))
         self.assertTrue(doc.xpath("//page[@name='observaciones']/field[@name='notes']"))
         self.assertEqual(doc.xpath("//button[@name='action_open_connected_splitter']/@invisible"), ["not has_child_splitter"])
+
+    def test_node_cable_lists_allow_editing_only_local_endpoint_boca(self):
+        doc = etree.parse(str(ROOT / "views/fiber_gis_node_views.xml"))
+        for relation, boca in (("incoming_cable_ids", "to_boca"), ("outgoing_cable_ids", "from_boca")):
+            with self.subTest(relation=relation):
+                field = doc.xpath(f"//field[@name='{relation}']")[0]
+                listing = field.find("list")
+                self.assertEqual(listing.get("editable"), "bottom")
+                self.assertEqual(listing.get("create"), "0")
+                self.assertEqual(listing.get("delete"), "0")
+                boca_field = listing.find(f"field[@name='{boca}']")
+                self.assertIsNotNone(boca_field)
+                self.assertFalse(boca_field.get("readonly"))
+
+    def test_tray_cable_fields_request_contextual_boca_labels(self):
+        doc = etree.parse(str(ROOT / "views/fiber_gis_cable_tray_wizard_views.xml"))
+        for name in ("cable_id", "other_cable_id", "pass_output_cable_id"):
+            with self.subTest(field=name):
+                field = doc.xpath(f"//field[@name='{name}'][@context]")[0]
+                context = field.get("context")
+                self.assertIn("fiber_gis_node_id", context)
+                self.assertIn("fiber_gis_show_boca", context)
+
+    def test_pass_through_requires_directional_cables_and_one_explicit_tray(self):
+        wizard_view = etree.parse(str(ROOT / "views/fiber_gis_cable_tray_wizard_views.xml"))
+        model_source = (ROOT / "models/cable_tray_wizard.py").read_text(encoding="utf-8")
+        trace_source = (ROOT / "models/trace.py").read_text(encoding="utf-8")
+        tray_source = (ROOT / "models/tray.py").read_text(encoding="utf-8")
+        self.assertTrue(wizard_view.xpath("//field[@name='cable_id'][@string='Cable entrada']"))
+        self.assertTrue(wizard_view.xpath("//field[@name='pass_output_cable_id'][@string='Cable salida']"))
+        self.assertTrue(wizard_view.xpath("//field[@name='tray_id'][@required='1']"))
+        self.assertIn("def _pass_fiber_pairs(", model_source)
+        self.assertIn("Continuidad de paso", trace_source)
+        self.assertIn("Una sangría de paso necesita una fibra de entrada y otra de salida", tray_source)
+
+    def test_map_can_continue_tracing_and_documents_automatic_pass(self):
+        map_template = etree.parse(str(ROOT / "static/src/xml/fiber_map.xml"))
+        continue_button = map_template.xpath("//button[contains(@t-on-click, 'saveCableDraft(true)')]")
+        self.assertTrue(continue_button)
+        self.assertIn("Crear y seguir trazando", continue_button[0].xpath("string(.//t/@t-esc)"))
+        self.assertFalse(map_template.xpath("//div[@class='o_fiber_gis_cable_draft_panel']//select"))
+        self.assertTrue(map_template.xpath("//select[@id='fiber_gis_cable_final_profile']"))
+        map_source = (ROOT / "static/src/js/fiber_map.js").read_text(encoding="utf-8")
+        cable_source = (ROOT / "models/cable.py").read_text(encoding="utf-8")
+        self.assertIn("state.cableDraftChainIds", map_source)
+        self.assertIn('"finalize_map_cable_chain"', map_source)
+        self.assertIn("async saveCableDraft(continueTracing = false)", map_source)
+        self.assertIn("_create_map_default_sangria(previous_cable, cable, from_node)", cable_source)
+        self.assertIn("def finalize_map_cable_chain(self, cable_ids, profile_id)", cable_source)
 
     def test_python310_and_xml_syntax(self):
         for path in ROOT.rglob("*.py"):

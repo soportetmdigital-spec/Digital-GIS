@@ -1,8 +1,11 @@
 """Asistente contextual: una salida conecta fibra, splitter o acometida."""
 
+import html
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 from .work_log import work_employee_id
+from .splitter_options import SPLITTER_RATIO_SELECTION
 
 
 class FiberGisSplitterDropWizard(models.TransientModel):
@@ -29,10 +32,7 @@ class FiberGisSplitterDropWizard(models.TransientModel):
     target_splitter_id = fields.Many2one("fiber.gis.splitter", string="Splitter a conectar")
     tray_id = fields.Many2one("fiber.gis.tray", string="Bandeja del nuevo splitter")
     splitter_name = fields.Char(string="Nombre del nuevo splitter")
-    new_ratio = fields.Selection([
-        ("1:2", "1:2"), ("1:4", "1:4"), ("1:8", "1:8"),
-        ("1:16", "1:16"), ("1:32", "1:32"), ("1:64", "1:64"),
-    ], string="Relaci\u00f3n", default="1:8")
+    new_ratio = fields.Selection(SPLITTER_RATIO_SELECTION, string="Relaci\u00f3n", default="1:8")
 
     splitter_id = fields.Many2one(
         "fiber.gis.splitter",
@@ -87,11 +87,13 @@ class FiberGisSplitterDropWizard(models.TransientModel):
 
     @api.depends("output_id.downstream_splitter_ids")
     def _compute_has_child_splitter(self):
+        """Calcula y actualiza «tiene elemento dependiente splitter» a partir de los datos actuales y sus relaciones."""
         for wizard in self:
             wizard.has_child_splitter = bool(wizard.output_id.downstream_splitter_ids)
 
     @api.depends("splitter_id", "cable_id")
     def _compute_connection_options(self):
+        """Calcula y actualiza «conexión opciones» a partir de los datos actuales y sus relaciones."""
         for wizard in self:
             wizard.available_cable_ids = wizard.splitter_id._connected_cables() if wizard.splitter_id else self.env["fiber.gis.cable"]
             if wizard.cable_id and wizard.cable_id in wizard.available_cable_ids:
@@ -106,21 +108,56 @@ class FiberGisSplitterDropWizard(models.TransientModel):
                 ("state", "not in", ["retired", "fault"]),
             ]) if wizard.node_id else self.env["fiber.gis.splitter"]
 
-    @api.depends("fiber_id", "node_id")
+    @api.depends(
+        "cable_id", "cable_id.fiber_ids", "cable_id.fiber_ids.number", "fiber_id",
+        "cable_id.fiber_ids.tube", "cable_id.fiber_ids.tube_color",
+        "cable_id.fiber_ids.color", "cable_id.fiber_ids.state",
+        "cable_id.fiber_ids.tray_input_line_ids.line_type",
+        "cable_id.fiber_ids.tray_output_line_ids.line_type",
+        "cable_id.fiber_ids.splitter_input_ids", "cable_id.fiber_ids.splitter_output_ids",
+        "node_id", "node_id.name", "node_id.address",
+    )
     def _compute_fiber_info_html(self):
+        """Lista todas las fibras del cable y resume la conexion registrada en ambos extremos."""
         for wizard in self:
-            fiber = wizard.fiber_id
-            wizard.fiber_info_html = wizard.node_id._fiber_endpoint_html(
-                fiber, fiber.tube, fiber.tube_color, fiber.color,
-            ) if fiber and wizard.node_id else False
+            cable = wizard.cable_id
+            node = wizard.node_id
+            if not cable or not node:
+                wizard.fiber_info_html = False
+                continue
+            rows = []
+            fibers = cable.fiber_ids
+            if not fibers:
+                cable.action_generate_fibers()
+                fibers = cable.fiber_ids
+            for fiber in fibers.sorted("number"):
+                from_summary = fiber._endpoint_connections(cable.from_node_id)
+                to_summary = fiber._endpoint_connections(cable.to_node_id)
+                selected = " class='is-selected'" if fiber == wizard.fiber_id else ""
+                fiber_visual = wizard.splitter_id._fiber_html(
+                    fiber, wizard.splitter_id._fiber_remote_label(fiber),
+                )
+                rows.append(
+                    f"<tr{selected}><td>{fiber_visual}</td>"
+                    f"<td><strong>Origen:</strong><br/>{html.escape(from_summary).replace(chr(10), '<br/>')}</td>"
+                    f"<td><strong>Destino:</strong><br/>{html.escape(to_summary).replace(chr(10), '<br/>')}</td></tr>"
+                )
+            wizard.fiber_info_html = (
+                "<div class='o_fiber_splitter_fiber_info'><table><thead><tr>"
+                "<th>Fibra / cable / extremo</th>"
+                "<th>Conexión en origen</th><th>Conexión en destino</th>"
+                f"</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
+            )
 
     @api.onchange("cable_id")
     def _onchange_cable_id(self):
+        """Recalcula los campos del formulario al cambiar «cable identificador», antes de guardar el registro."""
         for wizard in self:
             if wizard.fiber_id.cable_id != wizard.cable_id:
                 wizard.fiber_id = False
 
     def action_disconnect(self):
+        """Ejecuta la acción de usuario «desconexión» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         self = self.with_context(fiber_gis_employee_id=self.employee_id.id or False)
         work_employee_id(self.env)
@@ -132,6 +169,7 @@ class FiberGisSplitterDropWizard(models.TransientModel):
         return action
 
     def action_open_connected_splitter(self):
+        """Abre la ficha del splitter conectado a esta salida."""
         self.ensure_one()
         child = self.output_id.downstream_splitter_ids[:1]
         if not child:
@@ -140,6 +178,7 @@ class FiberGisSplitterDropWizard(models.TransientModel):
 
     @api.depends("splitter_id", "drop_cable_id")
     def _compute_available_options(self):
+        """Calcula y actualiza «disponible opciones» a partir de los datos actuales y sus relaciones."""
         empty_outputs = self.env["fiber.gis.splitter.output"]
         empty_cables = self.env["fiber.gis.cable"]
         empty_fibers = self.env["fiber.gis.cable.fiber"]
@@ -165,12 +204,14 @@ class FiberGisSplitterDropWizard(models.TransientModel):
 
     @api.onchange("drop_cable_id")
     def _onchange_drop_cable_id(self):
+        """Recalcula los campos del formulario al cambiar «acometida cable identificador», antes de guardar el registro."""
         self.drop_fiber_id = False
         if self.drop_cable_id:
             self.drop_cable_id.action_generate_fibers()
 
     @api.onchange("customer_id")
     def _onchange_customer_id(self):
+        """Recalcula los campos del formulario al cambiar «cliente identificador», antes de guardar el registro."""
         self.drop_cable_id = False
         self.drop_fiber_id = False
         customer = self.customer_id
@@ -194,6 +235,7 @@ class FiberGisSplitterDropWizard(models.TransientModel):
             self.customer_longitude = longitude
 
     def action_connect(self):
+        """Ejecuta la acción de usuario «conexión» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         self = self.with_context(fiber_gis_employee_id=self.employee_id.id or False)
         work_employee_id(self.env)
@@ -210,7 +252,9 @@ class FiberGisSplitterDropWizard(models.TransientModel):
                 raise UserError("Selecciona el cable y una de sus fibras.")
             if self.cable_id not in self.splitter_id._connected_cables():
                 raise UserError("El cable debe estar conectado al elemento del splitter.")
-            wizard = self.env["fiber.gis.cable.tray.wizard"].create({
+            wizard = self.env["fiber.gis.cable.tray.wizard"].with_context(
+                fiber_gis_internal_splitter_fusion=True,
+            ).create({
                 "operation": "splitter_fusion", "node_id": self.node_id.id,
                 "tray_id": self.splitter_id.tray_id.id, "cable_id": self.cable_id.id,
                 "from_fiber": self.fiber_id.number, "to_fiber": self.fiber_id.number,

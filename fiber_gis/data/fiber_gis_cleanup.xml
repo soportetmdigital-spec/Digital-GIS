@@ -7,5 +7,4 @@
     <delete model="ir.ui.view" search="[('name', 'ilike', 'splice')]"/>
     <delete model="ir.ui.view" search="[('arch_db', 'ilike', 'splice_diagram_html')]"/>
     <delete model="ir.ui.view" search="[('arch_db', 'ilike', 'splice_ids')]"/>
-    <delete model="ir.model.data" search="[('module', '=', 'fiber_gis'), ('name', 'ilike', 'splice')]"/>
 </odoo>

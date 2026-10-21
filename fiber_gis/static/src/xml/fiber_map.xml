@@ -147,7 +147,7 @@
                         <h3 t-esc="selectedCable.name"/>
                         <p><strong t-esc="selectedCable.code"/> &#xB7; <span t-esc="selectedCable.total_fiber_count || selectedCable.fiber_count"/> fibras</p>
                         <p>Estado: <span t-esc="stateLabel(selectedCable.state)"/></p>
-                        <p>Tipo GIS: <span t-esc="cableTypeLabel(selectedCable)"/></p>
+                        <p>Tipología: <span t-esc="cableTypeLabel(selectedCable)"/></p>
                         <p>Trazado: <span t-esc="routeKindLabel(selectedCable.route_kind)"/></p>
                         <p>Longitud: <span t-esc="round(selectedCable.length_m)"/> m</p>
                         <button class="btn btn-primary w-100" t-on-click="openSelected">Abrir ficha</button>
@@ -161,10 +161,6 @@
                         </t>
                     </div>
                 </t>
-                <div class="o_fiber_gis_version">
-                    Fiber GIS v19.0.3.37.0<br/>
-                    Geocodificaci&#xF3;n &#xA9; OpenStreetMap contributors
-                </div>
             </aside>
             <main class="o_fiber_gis_canvas">
                 <div t-if="state.cableDraftMode" class="o_fiber_gis_cable_draft_panel">
@@ -173,16 +169,12 @@
                         <span t-if="!state.cableDraftFromNodeId">Selecciona el elemento de origen.</span>
                         <span t-else="">
                             Origen: <b t-esc="cableDraftFromLabel"/>.
-                            Pulsa el mapa para crear esquinas y otro elemento para terminar.
+                            Pulsa el mapa para crear esquinas y otro elemento para elegir las bocas.
                         </span>
                     </div>
                     <div class="o_fiber_gis_cable_draft_type">
-                        <label for="fiber_gis_cable_draft_type">Tipo de cable</label>
-                        <select id="fiber_gis_cable_draft_type" class="form-select form-select-sm" t-model="state.cableDraftTypeId">
-                            <t t-foreach="cableTypes" t-as="type" t-key="type.id">
-                                <option t-att-value="type.id" t-esc="type.name"/>
-                            </t>
-                        </select>
+                        <label>Tipología</label>
+                        <span>Se elige al finalizar</span>
                     </div>
                     <div class="o_fiber_gis_cable_draft_routes">
                         <button
@@ -200,8 +192,66 @@
                             t-if="state.cableDraftFromNodeId"
                             class="btn btn-sm btn-light"
                             t-on-click="undoCableDraftPoint">Deshacer</button>
-                        <button class="btn btn-sm btn-light" t-on-click="() => this.cancelCableDrawing()">Cancelar</button>
+                        <button class="btn btn-sm btn-light" t-on-click="finishCableDraftTracing">
+                            <t t-esc="state.cableDraftChainIds.length ? 'Finalizar trazado' : 'Cancelar'"/>
+                        </button>
                     </div>
+                </div>
+                <div t-if="state.showCableDraftFinalize" class="o_fiber_gis_boca_dialog_backdrop">
+                    <section class="o_fiber_gis_boca_dialog" role="dialog" aria-modal="true" aria-labelledby="fiber-gis-cable-type-title">
+                        <h3 id="fiber-gis-cable-type-title">Tipología del trazado</h3>
+                        <p>Elige el tipo de cable que se aplicará a todos los tramos de esta cadena.</p>
+                        <div class="o_fiber_gis_cable_draft_type">
+                            <label for="fiber_gis_cable_final_profile">Tipología de cable</label>
+                            <select id="fiber_gis_cable_final_profile" class="form-select" t-model="state.cableDraftFinalProfileId">
+                                <option value="">Selecciona una tipología</option>
+                                <t t-foreach="cableTypes" t-as="type" t-key="type.id">
+                                    <option t-att-value="type.id" t-esc="type.name"/>
+                                </t>
+                            </select>
+                        </div>
+                        <div class="o_fiber_gis_boca_actions">
+                            <button class="btn btn-light" t-att-disabled="state.cableDraftFinalizing" t-on-click="cancelCableDraftFinalization">Dejar tipología actual</button>
+                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFinalProfileId || state.cableDraftFinalizing" t-on-click="finalizeCableDraftChain">
+                                <t t-esc="state.cableDraftFinalizing ? 'Finalizando...' : 'Aplicar tipología y finalizar'"/>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+                <div t-if="state.cableDraftToNodeId" class="o_fiber_gis_boca_dialog_backdrop">
+                    <section class="o_fiber_gis_boca_dialog" role="dialog" aria-modal="true" aria-labelledby="fiber-gis-boca-title">
+                        <h3 id="fiber-gis-boca-title">Bocas del cable</h3>
+                        <p>Selecciona la boca de salida y la boca de entrada para este cable.</p>
+                        <div class="o_fiber_gis_boca_fields">
+                            <label>
+                                <span>Elemento de origen: <b t-esc="cableDraftFromLabel"/></span>
+                                <select class="form-select" t-model="state.cableDraftFromBoca">
+                                    <option value="">Selecciona una boca</option>
+                                    <t t-foreach="cableDraftFromBocas" t-as="boca" t-key="boca">
+                                        <option t-att-value="boca">Boca <t t-esc="boca"/></option>
+                                    </t>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Elemento de destino: <b t-esc="cableDraftToNode.code || cableDraftToNode.name"/></span>
+                                <select class="form-select" t-model="state.cableDraftToBoca">
+                                    <option value="">Selecciona una boca</option>
+                                    <t t-foreach="cableDraftToBocas" t-as="boca" t-key="boca">
+                                        <option t-att-value="boca">Boca <t t-esc="boca"/></option>
+                                    </t>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="o_fiber_gis_boca_actions">
+                            <button class="btn btn-light" t-on-click="cancelCableDraftDestination">Volver al mapa</button>
+                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="saveCableDraft">
+                                <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear cable'"/>
+                            </button>
+                            <button class="btn btn-secondary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="() => this.saveCableDraft(true)">
+                                <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear y seguir trazando'"/>
+                            </button>
+                        </div>
+                    </section>
                 </div>
                 <t t-if="state.contextMenu">
                     <div class="o_fiber_gis_context_menu"
@@ -299,21 +349,7 @@
                     t-on-pointerout="onMapPointerOut"
                     t-on-contextmenu="onMapContextMenu"
                     t-on-wheel.prevent="onWheel">
-                    <defs>
-                        <pattern id="fiberGrid" width="48" height="48" patternUnits="userSpaceOnUse">
-                            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#d8dee8" stroke-width="1"/>
-                        </pattern>
-                    </defs>
                     <g t-ref="mapScene" class="o_fiber_gis_scene">
-                    <t t-if="showVectorMap">
-                        <g class="o_fiber_gis_vector_map" t-att-transform="vectorTransform">
-                            <path class="o_fiber_gis_green" t-att-d="vectorPath('green')"/>
-                            <path class="o_fiber_gis_water" t-att-d="vectorPath('water')"/>
-                            <path class="o_fiber_gis_rail" t-att-d="vectorPath('rail')"/>
-                            <path class="o_fiber_gis_minor_roads" t-att-d="vectorPath('minor')"/>
-                            <path class="o_fiber_gis_major_roads" t-att-d="vectorPath('major')"/>
-                        </g>
-                    </t>
                     <t t-if="catastroWebMap">
                         <image t-ref="catastroImage" class="o_fiber_gis_catastro o_fiber_gis_catastro_web"
                             t-att-href="catastroWebMap.url"
@@ -324,16 +360,6 @@
                             decoding="async"
                             preserveAspectRatio="none"/>
                     </t>
-                    <rect t-if="showVectorMap" width="100%" height="100%" fill="url(#fiberGrid)"/>
-                    <g class="o_fiber_gis_street_labels">
-                        <t t-foreach="streetLabels" t-as="label" t-key="label.key">
-                            <text
-                                t-att-x="label.x"
-                                t-att-y="label.y"
-                                t-att-class="label.important ? 'is-important' : ''"
-                                t-esc="label.name"/>
-                        </t>
-                    </g>
                     <g class="o_fiber_gis_cables">
                         <t t-foreach="visibleCables" t-as="cable" t-key="cable.id">
                             <t t-foreach="cableSegments(cable)" t-as="segment" t-key="segment.key">
@@ -410,7 +436,7 @@
                                 <circle t-elif="mapIconKind(node, 'circle') === 'circle'" r="8" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
                                 <rect t-elif="mapIconKind(node, 'circle') === 'square'" x="-8" y="-8" width="16" height="16" rx="3" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
                                 <path t-else="" t-att-d="mapIconPath(mapIconKind(node, 'circle'), 8)" fill-rule="evenodd" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
-                                <text t-if="showNodeLabels || state.selectedNodeId === node.id" x="12" y="4" t-esc="node.code"/>
+                                <text t-if="(showNodeLabels || state.selectedNodeId === node.id) &amp;&amp; (node.name || node.code)" x="12" y="4" t-esc="node.name || node.code"/>
                             </g>
                         </t>
                     </g>

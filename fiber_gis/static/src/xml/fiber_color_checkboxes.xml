@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="fiber_gis.FiberColorCheckboxesField">
+        <div class="o_fiber_color_checkboxes">
+            <t t-foreach="items" t-as="item" t-key="item.id">
+                <div class="o_fiber_color_checkbox" t-att-class="itemClass(item)">
+                    <CheckBox
+                        value="isSelected(item)"
+                        disabled="props.readonly"
+                        onChange="(ev) => this.onChange(item.id, ev)"
+                    >
+                        <span class="o_fiber_color_checkbox_label">
+                            <t t-if="item.tube">
+                                <i class="o_fiber_color_swatch" t-att-style="colorStyle(item.tube_color)"/>
+                                <span>T-<t t-esc="item.tube"/></span>
+                            </t>
+                            <i class="o_fiber_color_swatch" t-att-style="colorStyle(item.color)"/>
+                            <span>F-<t t-esc="item.number"/></span>
+                            <span class="o_fiber_color_checkbox_detail" t-esc="detail(item)"/>
+                        </span>
+                    </CheckBox>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

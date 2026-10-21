@@ -468,14 +468,6 @@
     color: #b91c1c;
 }
 
-.o_fiber_gis_version {
-    margin-top: auto;
-    padding-top: 14px;
-    color: #64748b;
-    font-size: 12px;
-    text-align: center;
-}
-
 .o_fiber_gis_canvas {
     position: relative;
     overflow: hidden;
@@ -497,76 +489,9 @@
     will-change: transform;
 }
 
-.o_fiber_gis_vector_map path {
-    vector-effect: non-scaling-stroke;
-}
-
-.o_fiber_gis_vector_map,
-.o_fiber_gis_street_labels,
-.o_fiber_gis_catastro,
-.o_fiber_gis_catastro_base {
-    pointer-events: none;
-}
-
-.o_fiber_gis_catastro_base {
-    fill: #f3ead9;
-}
-
 .o_fiber_gis_catastro {
+    pointer-events: none;
     opacity: 1;
-}
-
-.o_fiber_gis_green {
-    fill: rgba(186, 230, 202, 0.7);
-    stroke: rgba(119, 176, 139, 0.75);
-    stroke-width: 1;
-}
-
-.o_fiber_gis_water {
-    fill: none;
-    stroke: #7db7d8;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.o_fiber_gis_rail {
-    fill: none;
-    stroke: #6b7280;
-    stroke-width: 2;
-    stroke-dasharray: 6 5;
-}
-
-.o_fiber_gis_minor_roads {
-    fill: none;
-    stroke: rgba(255, 255, 255, 0.95);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.o_fiber_gis_major_roads {
-    fill: none;
-    stroke: #f5b041;
-    stroke-width: 4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.o_fiber_gis_street_labels text {
-    fill: #334155;
-    font-size: 11px;
-    font-weight: 600;
-    paint-order: stroke;
-    stroke: rgba(255, 255, 255, 0.86);
-    stroke-width: 3px;
-    user-select: none;
-}
-
-.o_fiber_gis_street_labels text.is-important {
-    fill: #111827;
-    font-size: 12px;
-    font-weight: 700;
 }
 
 .o_fiber_gis_cables path {
@@ -961,6 +886,65 @@
     white-space: nowrap;
 }
 
+.o_fiber_gis_boca_dialog_backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.42);
+}
+
+.o_fiber_gis_boca_dialog {
+    width: 560px;
+    max-width: 100%;
+    padding: 22px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
+}
+
+.o_fiber_gis_boca_dialog h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+}
+
+.o_fiber_gis_boca_dialog p {
+    margin: 0 0 18px;
+    color: #475569;
+}
+
+.o_fiber_gis_boca_fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.o_fiber_gis_boca_fields label {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+}
+
+.o_fiber_gis_boca_fields label > span {
+    overflow-wrap: anywhere;
+}
+
+.o_fiber_gis_boca_actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+    .o_fiber_gis_boca_fields {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 1100px) {
     .o_fiber_gis_cable_draft_panel {
         grid-template-columns: 1fr;
@@ -1121,6 +1105,18 @@
 
 .o_fiber_tray_line:hover {
     background: #eef4fb;
+}
+
+.o_fiber_tray_line.is-pending-cancel,
+.o_fiber_tray_line.is-pending-cancel:hover {
+    background: #fff1f2;
+    box-shadow: inset 4px 0 0 #ef4444;
+}
+
+.o_fiber_tray_line.is-pending-cancel .o_fiber_tray_type,
+.o_fiber_tray_line.is-pending-cancel .o_fiber_endpoint {
+    color: #9f1239;
+    font-weight: 700;
 }
 
 .o_fiber_tray_line.is-dragging {
@@ -1435,6 +1431,66 @@
     background: #f8fafc;
 }
 
+.o_fiber_color_checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+}
+
+.o_fiber_color_checkbox {
+    width: 100%;
+}
+
+.o_fiber_color_checkbox.is-pending-cancel,
+.o_fiber_color_checkbox.is-pending-cancel .form-check,
+.o_fiber_color_checkbox.is-pending-cancel .o_checkbox,
+.o_fiber_color_checkbox.is-pending-cancel .o-checkbox {
+    background: #fff1f2;
+    box-shadow: inset 3px 0 0 #ef4444;
+    font-weight: 700;
+}
+
+.o_fiber_color_checkbox .form-check,
+.o_fiber_color_checkbox .o_checkbox,
+.o_fiber_color_checkbox .o-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+    padding: 3px 4px;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.o_fiber_color_checkbox_label {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-width: 0;
+    line-height: 1.45;
+    white-space: normal;
+}
+
+.o_fiber_color_swatch {
+    display: inline-block;
+    flex: 0 0 13px;
+    width: 13px;
+    height: 13px;
+    border: 1px solid #94a3b8;
+    border-radius: 50%;
+}
+
+.o_fiber_color_checkbox_detail {
+    min-width: 0;
+    color: #64748b;
+    overflow-wrap: anywhere;
+}
+
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fibers td,
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fibers .o_td_field,
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fibers .o_field_widget,
@@ -1451,13 +1507,10 @@
 .o_fiber_fiber_picker .o-checkboxes,
 .o_fiber_fiber_picker.o_field_many2many_checkboxes,
 .o_fiber_fiber_picker.o_checkboxes,
-.o_fiber_fiber_picker.o-checkboxes,
-.o_fiber_tray_wizard_form div[name="selected_fiber_ids"],
-.o_fiber_tray_wizard_form div[name="fusion_input_fiber_ids"],
-.o_fiber_tray_wizard_form div[name="fusion_output_fiber_ids"] {
+.o_fiber_fiber_picker.o-checkboxes {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 7px 10px;
+    grid-template-columns: 1fr;
+    gap: 0;
     align-items: start;
 }
 
@@ -1529,10 +1582,15 @@
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion .o_fiber_fiber_picker .o-checkboxes,
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion .o_fiber_fiber_picker.o_field_many2many_checkboxes,
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion .o_fiber_fiber_picker.o_checkboxes,
-.o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion .o_fiber_fiber_picker.o-checkboxes,
+.o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion .o_fiber_fiber_picker.o-checkboxes {
+    grid-template-columns: 1fr;
+}
+
+.o_fiber_tray_wizard_form .o_fiber_tray_wizard_fibers div[name="selected_fiber_ids"],
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion div[name="fusion_input_fiber_ids"],
 .o_fiber_tray_wizard_form .o_fiber_tray_wizard_fusion div[name="fusion_output_fiber_ids"] {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    display: block !important;
+    width: 100% !important;
 }
 
 .o_fiber_fiber_picker .form-check,
@@ -1547,16 +1605,16 @@
 .o_fiber_tray_wizard_form div[name="fusion_output_fiber_ids"] .form-check,
 .o_fiber_tray_wizard_form div[name="fusion_output_fiber_ids"] .o_checkbox,
 .o_fiber_tray_wizard_form div[name="fusion_output_fiber_ids"] .o-checkbox {
-    display: grid;
-    grid-template-columns: 22px minmax(0, 1fr);
-    align-items: start;
-    column-gap: 7px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
     width: 100%;
-    padding: 7px 8px;
-    border: 1px solid #dbe4ef;
-    border-radius: 6px;
-    background: #fff;
+    padding: 3px 4px;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .o_fiber_fiber_picker label,

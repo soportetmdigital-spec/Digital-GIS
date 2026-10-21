@@ -8,6 +8,7 @@ _logger = logging.getLogger(__name__)
 
 
 def original_manual_name(cable):
+    """Determina si el nombre actual sigue siendo el generado automáticamente y permite recuperar el nombre manual anterior."""
     parts = [cable.from_node_id.code or cable.from_node_id.name or "",
              cable.to_node_id.code or cable.to_node_id.name or "", cable.to_node_id.address or ""]
     generated = " ".join(" ".join(parts).split())
@@ -16,6 +17,7 @@ def original_manual_name(cable):
 
 
 def migrate(cr, version):
+    """Migra los datos existentes a la estructura de esta versión, conservando las relaciones y valores válidos."""
     env = api.Environment(cr, SUPERUSER_ID, {"active_test": False, "tracking_disable": True})
     profiles = env["fiber.gis.cable.profile"]
     by_counts = {(item.tube_count, item.fiber_count): item for item in profiles.search([])}

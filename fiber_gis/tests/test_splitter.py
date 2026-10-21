@@ -3,6 +3,13 @@ from odoo.tests import TransactionCase
 
 
 class TestSplitterManagement(TransactionCase):
+    def test_tray_operation_picker_hides_internal_splitter_fusion(self):
+        wizard_model = self.env["fiber.gis.cable.tray.wizard"]
+        standard = dict(wizard_model._selection_operation())
+        internal = dict(wizard_model.with_context(fiber_gis_internal_splitter_fusion=True)._selection_operation())
+        self.assertNotIn("splitter_fusion", standard)
+        self.assertIn("splitter_fusion", internal)
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -169,6 +176,33 @@ class TestSplitterManagement(TransactionCase):
         with self.assertRaises(UserError):
             splitter._connect_customer_drop(output, drop_fiber)
 
+    def test_splitter_connection_wizard_lists_every_cable_fiber_and_directions(self):
+        splitter = self.env["fiber.gis.splitter"].create({
+            "tray_id": self.tray_1.id,
+            "ratio": "1:4",
+            "input_fiber_id": self.input_cable.fiber_ids[5].id,
+        })
+        wizard = self.env["fiber.gis.splitter.drop.wizard"].create({
+            "splitter_id": splitter.id,
+            "output_id": splitter.output_ids[0].id,
+            "operation": "fusion",
+            "cable_id": self.output_cable.id,
+        })
+
+        wizard._compute_fiber_info_html()
+        html = wizard.fiber_info_html
+        cable_label = self.env["fiber.gis.cable"].with_context(
+            fiber_gis_node_id=self.box.id,
+            fiber_gis_show_boca=True,
+        ).browse(self.output_cable.id).display_name
+
+        self.assertIn("Cable que va a Destino splitter", cable_label)
+        self.assertIn("Conexión en origen", html)
+        self.assertIn("Conexión en destino", html)
+        self.assertIn("o_fiber_splitter_identity", html)
+        self.assertEqual(html.count("<tr"), 12)
+        self.assertIn("Sin conexión registrada", html)
+
     def test_tray_assistant_connects_cable_fiber_to_splitter_output(self):
         splitter = self.env["fiber.gis.splitter"].create({
             "tray_id": self.tray_1.id,
@@ -177,7 +211,9 @@ class TestSplitterManagement(TransactionCase):
         })
         output = splitter.output_ids.filtered(lambda item: item.sequence == 2)
         fiber = self.output_cable.fiber_ids[8]
-        wizard = self.env["fiber.gis.cable.tray.wizard"].create({
+        wizard = self.env["fiber.gis.cable.tray.wizard"].with_context(
+            fiber_gis_internal_splitter_fusion=True,
+        ).create({
             "operation": "splitter_fusion",
             "node_id": self.box.id,
             "tray_id": self.tray_1.id,

@@ -28,24 +28,38 @@
         <field name="name">CTO</field>
         <field name="code">CTO</field>
         <field name="node_kind">cto</field>
+        <field name="cable_entry_count">4</field>
+        <field name="has_trays">True</field>
         <field name="sequence">50</field>
+    </record>
+    <record id="node_category_cto_internal" model="fiber.gis.node.category">
+        <field name="name">CTO interna</field>
+        <field name="code">CTO_INTERNAL</field>
+        <field name="node_kind">cto</field>
+        <field name="cable_entry_count">2</field>
+        <field name="has_trays">True</field>
+        <field name="sequence">51</field>
     </record>
     <record id="node_category_box" model="fiber.gis.node.category">
         <field name="name">Caja terminal</field>
         <field name="code">BOX</field>
         <field name="node_kind">box</field>
+        <field name="has_trays">True</field>
         <field name="sequence">60</field>
     </record>
     <record id="node_category_closure" model="fiber.gis.node.category">
         <field name="name">Caja de registro</field>
         <field name="code">CLOSURE</field>
         <field name="node_kind">closure</field>
+        <field name="has_trays">True</field>
         <field name="sequence">70</field>
     </record>
     <record id="node_category_manhole" model="fiber.gis.node.category">
         <field name="name">Arqueta</field>
         <field name="code">MANHOLE</field>
         <field name="node_kind">manhole</field>
+        <field name="map_icon">square</field>
+        <field name="color">#000000</field>
         <field name="sequence">80</field>
     </record>
     <record id="node_category_pole" model="fiber.gis.node.category">

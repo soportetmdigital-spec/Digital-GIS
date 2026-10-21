@@ -16,7 +16,7 @@ const EARTH_RADIUS = 6378137;
 const DEFAULT_CENTER = { latitude: 37.183, longitude: -3.642 };
 const DEFAULT_SCALE = 0.065;
 const CATASTRO_WMS_URL = "https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx";
-const CATASTRO_START_ZOOM = 25;
+const CATASTRO_START_ZOOM = 1.15;
 const MAP_INTERACTION_IDLE_MS = 420;
 const MAP_PAN_COMMIT_IDLE_MS = 90;
 const CAMERA_SAVE_IDLE_MS = 180;
@@ -51,8 +51,8 @@ export class FiberGisMap extends Component {
             sites: [],
             nodes: [],
             cables: [],
-            vectorMap: null,
             types: {},
+            cableProfiles: [],
             selectedSiteId: null,
             selectedNodeId: null,
             selectedCableId: null,
@@ -89,15 +89,25 @@ export class FiberGisMap extends Component {
             planCableIds: [],
             cableDraftMode: false,
             cableDraftFromNodeId: null,
+            cableDraftToNodeId: null,
             cableDraftViaPoints: [],
             cableDraftCursor: null,
+            cableDraftFromBoca: null,
+            cableDraftToBoca: null,
+            cableDraftFromBocas: [],
+            cableDraftToBocas: [],
             cableDraftRouteKind: "underground",
             cableDraftTypeId: false,
+            cableDraftChainIds: [],
+            cableDraftFinalProfileId: false,
+            showCableDraftFinalize: false,
+            cableDraftFinalizing: false,
             cableDraftSaving: false,
             undoCount: 0,
             redoCount: 0,
             historyBusy: false,
             loading: true,
+            mapDetailZoom: 0.67,
         });
         this._undoStack = [];
         this._redoStack = [];
@@ -170,7 +180,7 @@ export class FiberGisMap extends Component {
             const cableDomain = loadOnlyPlan
                 ? [["id", "in", planScope.cable_ids || []]]
                 : [["active", "=", true]];
-            const [sites, nodes, cables, types] = await Promise.all([
+            const [sites, nodes, cables, types, mapDetailZoom, cableProfiles] = await Promise.all([
                 this.orm.searchRead(
                     "fiber.gis.site",
                     siteDomain,
@@ -201,6 +211,7 @@ export class FiberGisMap extends Component {
                         "manhole_width_cm",
                         "manhole_depth_cm",
                         "capacity_ports",
+                        "cable_entry_count",
                         "dowisp_id",
                         "dowisp_zone",
                         "dowisp_deployment",
@@ -215,6 +226,7 @@ export class FiberGisMap extends Component {
                     [
                         "name",
                         "code",
+                        "profile_id",
                         "type_id",
                         "deployment_plan_id",
                         "color",
@@ -226,7 +238,9 @@ export class FiberGisMap extends Component {
                         "tube_count",
                         "length_m",
                         "from_node_id",
+                        "from_boca",
                         "to_node_id",
+                        "to_boca",
                         "from_latitude",
                         "from_longitude",
                         "to_latitude",
@@ -239,7 +253,15 @@ export class FiberGisMap extends Component {
                     [["active", "=", true]],
                     ["name", "code", "category", "color", "sequence"]
                 ),
+                this.orm.call("fiber.gis.site", "get_map_detail_zoom", []),
+                this.orm.searchRead(
+                    "fiber.gis.cable.profile",
+                    [["active", "=", true]],
+                    ["name", "gis_type_id", "tube_count", "fiber_count", "total_fiber_count"]
+                ),
             ]);
+            this.state.mapDetailZoom = Number(mapDetailZoom) || 0.67;
+            this.state.cableProfiles = cableProfiles;
             this.state.sites = sites;
             this._sitesById = new Map(sites.map((site) => [site.id, site]));
             this.state.nodes = nodes;
@@ -250,8 +272,6 @@ export class FiberGisMap extends Component {
             this.state.plan = planScope?.plan || null;
             this.state.planNodeIds = planScope?.node_ids || [];
             this.state.planCableIds = planScope?.cable_ids || [];
-            this.state.vectorMap = null;
-            this._vectorPathCache = {};
             this.state.types = Object.fromEntries(types.map((type) => [type.id, type]));
             if (!this.cableTypes.some((type) => type.id === Number(this.state.cableDraftTypeId))) {
                 this.state.cableDraftTypeId = this.defaultCableTypeId();
@@ -360,21 +380,28 @@ export class FiberGisMap extends Component {
     }
 
     get selectedNode() {
-        return this.state.nodes.find((node) => node.id === this.state.selectedNodeId);
+        return this._nodesById?.get(this.state.selectedNodeId)
+            || this.state.nodes.find((node) => node.id === this.state.selectedNodeId);
     }
 
     get selectedSite() {
-        return this.state.sites.find((site) => site.id === this.state.selectedSiteId);
+        return this._sitesById?.get(this.state.selectedSiteId)
+            || this.state.sites.find((site) => site.id === this.state.selectedSiteId);
     }
 
     get selectedCable() {
-        return this.state.cables.find((cable) => cable.id === this.state.selectedCableId);
+        return this._cablesById?.get(this.state.selectedCableId)
+            || this.state.cables.find((cable) => cable.id === this.state.selectedCableId);
     }
 
     get cableTypes() {
-        return Object.values(this.state.types)
-            .filter((type) => type.category === "cable")
-            .sort((left, right) => (left.sequence || 0) - (right.sequence || 0) || left.name.localeCompare(right.name));
+        return this.state.cableProfiles
+            .map((profile) => ({
+                ...profile,
+                category: "cable",
+                name: `${profile.name} - Tipo GIS: ${Array.isArray(profile.gis_type_id) ? profile.gis_type_id[1] : "Sin definir"}`,
+            }))
+            .sort((left, right) => left.name.localeCompare(right.name));
     }
 
     get searchResults() {
@@ -382,10 +409,10 @@ export class FiberGisMap extends Component {
         if (query.length < 2 || this.state.searchResolvedQuery !== query) {
             return [];
         }
-        if (this.state.inventorySearchResults.length) {
-            return this.state.inventorySearchResults.slice(0, 12);
-        }
-        return this.state.streetSearchResults.slice(0, 8);
+        return [
+            ...this.state.inventorySearchResults.slice(0, 12),
+            ...this.state.streetSearchResults.slice(0, 8),
+        ];
     }
 
     inventorySearchResults(query) {
@@ -439,6 +466,7 @@ export class FiberGisMap extends Component {
                     /^\s*santa\s*f[e\u00e9]\s*:\s*/i,
                     /\s*,\s*santa\s*f[e\u00e9]\s*$/i,
                     /\s+en\s+santa\s*f[e\u00e9]\s*$/i,
+                    /\s+santa\s*f[e\u00e9]\s*$/i,
                 ],
             },
             {
@@ -447,6 +475,7 @@ export class FiberGisMap extends Component {
                     /^\s*granada(?:\s+capital)?\s*:\s*/i,
                     /\s*,\s*granada(?:\s+capital)?\s*$/i,
                     /\s+en\s+granada(?:\s+capital)?\s*$/i,
+                    /\s+granada(?:\s+capital)?\s*$/i,
                 ],
             },
         ];
@@ -455,6 +484,7 @@ export class FiberGisMap extends Component {
                 if (pattern.test(value)) {
                     return {
                         area: candidate.area,
+                        areas: [candidate.area],
                         query: value.replace(pattern, "").trim(),
                     };
                 }
@@ -464,14 +494,9 @@ export class FiberGisMap extends Component {
             this.state.viewWidth / 2,
             this.state.viewHeight / 2
         );
-        const containingArea = STREET_SEARCH_AREAS.find((area) => (
-            center.latitude >= area.south &&
-            center.latitude <= area.north &&
-            center.longitude >= area.west &&
-            center.longitude <= area.east
-        ));
         return {
-            area: containingArea || this.nearestStreetSearchArea(center),
+            area: null,
+            areas: STREET_SEARCH_AREAS,
             query: value,
         };
     }
@@ -525,20 +550,11 @@ export class FiberGisMap extends Component {
         if (!points.length) {
             return false;
         }
-        let south = Infinity;
-        let west = Infinity;
-        let north = -Infinity;
-        let east = -Infinity;
-        for (const [latitude, longitude] of points) {
-            south = Math.min(south, latitude);
-            north = Math.max(north, latitude);
-            west = Math.min(west, longitude);
-            east = Math.max(east, longitude);
-        }
-        return west <= bounds.east
-            && east >= bounds.west
-            && south <= bounds.north
-            && north >= bounds.south;
+        const extent = this._cablePointCache?.get(cable.id)?.extent || this.geoPointsExtent(points);
+        return extent.west <= bounds.east
+            && extent.east >= bounds.west
+            && extent.south <= bounds.north
+            && extent.north >= bounds.south;
     }
 
     project(latitude, longitude) {
@@ -867,11 +883,11 @@ export class FiberGisMap extends Component {
     }
 
     get showDetailedNodeIcons() {
-        return this.zoomFactor >= 2.5;
+        return this.zoomFactor >= this.state.mapDetailZoom;
     }
 
     get showNodeLabels() {
-        return this.zoomFactor >= 4;
+        return this.zoomFactor >= this.state.mapDetailZoom;
     }
 
     get traceCables() {
@@ -895,12 +911,33 @@ export class FiberGisMap extends Component {
     }
 
     get cableDraftFromNode() {
-        return this.state.nodes.find((node) => node.id === this.state.cableDraftFromNodeId);
+        return this._nodesById?.get(this.state.cableDraftFromNodeId)
+            || this.state.nodes.find((node) => node.id === this.state.cableDraftFromNodeId);
     }
 
     get cableDraftFromLabel() {
         const node = this.cableDraftFromNode;
         return node ? node.code || node.name || `Elemento ${node.id}` : "";
+    }
+
+    get cableDraftToNode() {
+        return this._nodesById?.get(this.state.cableDraftToNodeId)
+            || this.state.nodes.find((node) => node.id === this.state.cableDraftToNodeId);
+    }
+
+    get cableDraftFromBocas() {
+        return this.state.cableDraftFromBocas;
+    }
+
+    get cableDraftToBocas() {
+        return this.state.cableDraftToBocas;
+    }
+
+    async availableCableBocas(node) {
+        if (!node) {
+            return [];
+        }
+        return this.orm.call("fiber.gis.cable", "get_available_bocas", [node.id]);
     }
 
     get cableDraftGeoPoints() {
@@ -1054,42 +1091,6 @@ export class FiberGisMap extends Component {
         this.state.viewHeight = Math.max(container.height, 320);
     }
 
-    vectorPath(layer) {
-        if (!this.state.vectorMap) {
-            return "";
-        }
-        this._vectorPathCache = this._vectorPathCache || {};
-        if (this._vectorPathCache[layer]) {
-            return this._vectorPathCache[layer];
-        }
-        const segments = [];
-        for (const way of this.state.vectorMap.w || []) {
-            if (this.vectorLayer(way) !== layer) {
-                continue;
-            }
-            const points = way.p || [];
-            if (points.length < 2) {
-                continue;
-            }
-            const d = points
-                .map((coord, index) => {
-                    const point = this.project(coord[0], coord[1]);
-                    return `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-                })
-                .join(" ");
-            segments.push(way.c ? `${d} Z` : d);
-        }
-        this._vectorPathCache[layer] = segments.join(" ");
-        return this._vectorPathCache[layer];
-    }
-
-    get vectorTransform() {
-        if (!this.state.bounds) {
-            return "";
-        }
-        return `translate(${this.state.offsetX} ${this.state.offsetY}) scale(${this.state.scale}) translate(${-this.state.bounds.minX} ${-this.state.bounds.minY})`;
-    }
-
     get isInteracting() {
         return Boolean(
             this._panning ||
@@ -1102,10 +1103,6 @@ export class FiberGisMap extends Component {
 
     get showCatastro() {
         return Boolean(this.state.bounds);
-    }
-
-    get showVectorMap() {
-        return false;
     }
 
     get catastroWebMap() {
@@ -1275,46 +1272,6 @@ export class FiberGisMap extends Component {
         };
     }
 
-    vectorLayer(way) {
-        if (way.k === "green") {
-            return "green";
-        }
-        if (way.k === "water") {
-            return "water";
-        }
-        if (way.k === "rail") {
-            return "rail";
-        }
-        if (["motorway", "trunk", "primary", "secondary", "tertiary"].includes(way.h)) {
-            return "major";
-        }
-        return "minor";
-    }
-
-    get showStreetLabels() {
-        return this.state.scale >= 0.12 && this.showVectorMap && !this.isInteracting;
-    }
-
-    get streetLabels() {
-        if (!this.showStreetLabels || !this.state.vectorMap || !this.state.bounds) {
-            return [];
-        }
-        const minImportance = this.state.scale < 0.18 ? 4 : this.state.scale < 0.3 ? 3 : 1;
-        return (this.state.vectorMap.l || [])
-            .filter((label) => label.i >= minImportance)
-            .slice(0, this.state.scale < 0.3 ? 80 : 160)
-            .map((label) => {
-                const point = this.mapPoint(label.p[0], label.p[1]);
-                return {
-                    key: `${label.n}-${label.p[0]}-${label.p[1]}`,
-                    name: label.n,
-                    x: point.x,
-                    y: point.y,
-                    important: label.i >= 4,
-                };
-            });
-    }
-
     cablePoints(cable) {
         return this.cableGeoPoints(cable).map((point) => this.mapPoint(point[0], point[1]));
     }
@@ -1337,8 +1294,27 @@ export class FiberGisMap extends Component {
         const middlePoints = manualPoints.length > 2 ? manualPoints.slice(1, -1) : [];
         const points = [start, ...middlePoints, end];
         const validPoints = points.filter((point) => point[0] && point[1]);
-        this._cablePointCache?.set(cable.id, { key: cacheKey, points: validPoints });
+        this._cablePointCache?.set(cable.id, {
+            key: cacheKey,
+            points: validPoints,
+            extent: this.geoPointsExtent(validPoints),
+        });
         return validPoints;
+    }
+
+    geoPointsExtent(points) {
+        // El rectángulo se calcula una vez por geometría y se reutiliza al mover o ampliar el mapa.
+        if (!points.length) {
+            return null;
+        }
+        const extent = { south: Infinity, west: Infinity, north: -Infinity, east: -Infinity };
+        for (const [latitude, longitude] of points) {
+            extent.south = Math.min(extent.south, latitude);
+            extent.north = Math.max(extent.north, latitude);
+            extent.west = Math.min(extent.west, longitude);
+            extent.east = Math.max(extent.east, longitude);
+        }
+        return extent;
     }
 
     cableEndpoint(cable, side) {
@@ -1548,6 +1524,9 @@ export class FiberGisMap extends Component {
     }
 
     cableTypeLabel(cable) {
+        if (Array.isArray(cable?.profile_id)) {
+            return cable.profile_id[1];
+        }
         const typeId = Array.isArray(cable?.type_id) ? cable.type_id[0] : cable?.type_id;
         return this.state.types[typeId]?.name || (Array.isArray(cable?.type_id) ? cable.type_id[1] : "") || "Sin tipo";
     }
@@ -1810,7 +1789,7 @@ export class FiberGisMap extends Component {
         this.state.selectedNodeId = null;
     }
 
-    focusSearchResult(result) {
+    async focusSearchResult(result) {
         if (result.kind === "site") {
             this.selectSite(result.record);
             if (this.hasCoordinates(result.record)) {
@@ -1837,7 +1816,19 @@ export class FiberGisMap extends Component {
             this.selectCable(result.record);
             this.centerOnCable(result.record);
         } else if (result.kind === "street") {
-            this.fitToStreet(result.record);
+            try {
+                const geometry = result.record.latitude && result.record.longitude
+                    ? result.record
+                    : await this.orm.call(
+                        "fiber.gis.site", "locate_map_street",
+                        [result.record.catastro_id, result.record.area_key]
+                    );
+                this.fitToStreet({ ...result.record, ...geometry });
+            } catch {
+                this.notification.add("No se ha podido situar la calle desde Catastro.", {
+                    type: "warning",
+                });
+            }
         }
     }
 
@@ -1881,14 +1872,13 @@ export class FiberGisMap extends Component {
         if (normalizedQuery.length < 2) {
             return;
         }
-        const inventoryResults = this.inventorySearchResults(normalizedQuery);
-        this.state.inventorySearchResults = inventoryResults;
-        if (inventoryResults.length) {
-            return;
-        }
         const context = this.searchStreetContext(rawQuery);
         const streetQuery = context.query.trim();
-        this.state.streetSearchArea = context.area.name;
+        const inventoryResults = this.inventorySearchResults(
+            this.normalizeSearchText(streetQuery)
+        );
+        this.state.inventorySearchResults = inventoryResults;
+        this.state.streetSearchArea = context.areas.map((area) => area.name).join(" y ");
         if (this.normalizeSearchText(streetQuery).length < 2) {
             return;
         }
@@ -1896,24 +1886,27 @@ export class FiberGisMap extends Component {
         this._streetSearchRequestId = requestId;
         this.state.streetSearchLoading = true;
         try {
-            const streets = await this.orm.call(
-                "fiber.gis.site",
-                "search_map_streets",
-                [streetQuery, context.area.key]
-            );
+            const responses = await Promise.all(context.areas.map((area) => (
+                this.orm.call(
+                    "fiber.gis.site",
+                    "search_map_streets",
+                    [streetQuery, area.key]
+                )
+            )));
             if (this._streetSearchRequestId !== requestId) {
                 return;
             }
-            this.state.streetSearchResults = (streets || []).map((street, index) => ({
-                key: `street-${context.area.key}-${street.osm_id || index}`,
+            const streets = responses.flatMap((items) => items || []);
+            this.state.streetSearchResults = streets.map((street, index) => ({
+                key: `street-${street.area_key}-${street.catastro_id || index}`,
                 kind: "street",
                 label: street.name,
-                detail: `Calle \u00b7 ${street.municipality} \u00b7 ${street.display_name}`,
+                detail: `Catastro \u00b7 ${street.municipality} \u00b7 ${street.display_name}`,
                 record: street,
             }));
         } catch {
             if (this._streetSearchRequestId === requestId) {
-                this.state.streetSearchError = "No se ha podido consultar OpenStreetMap.";
+                this.state.streetSearchError = "No se ha podido consultar Catastro.";
             }
         } finally {
             if (this._streetSearchRequestId === requestId) {
@@ -1985,23 +1978,27 @@ export class FiberGisMap extends Component {
 
     toggleCableDrawing() {
         if (this.state.cableDraftMode) {
-            this.cancelCableDrawing();
+            this.finishCableDraftTracing();
             return;
         }
         this.startCableDrawing(this.selectedNode);
     }
 
-    startCableDrawing(node = null) {
+    async startCableDrawing(node = null) {
         if (!this.cableTypes.length) {
-            this.notification.add("No hay tipos GIS de cable activos. Configura uno antes de trazar.", { type: "danger" });
+            this.notification.add("No hay tipologías de cable activas. Configura una antes de trazar.", { type: "danger" });
             return;
         }
         this.state.cableDraftMode = true;
+        this.state.cableDraftChainIds = [];
+        this.state.showCableDraftFinalize = false;
         this.state.cableDraftFromNodeId = null;
         this.state.cableDraftViaPoints = [];
         this.state.cableDraftCursor = null;
         this._draftPreviewCursor = null;
         this.state.cableDraftSaving = false;
+        this.state.cableDraftFromBocas = [];
+        this.state.cableDraftToBocas = [];
         if (!this.cableTypes.some((type) => type.id === Number(this.state.cableDraftTypeId))) {
             this.state.cableDraftTypeId = this.defaultCableTypeId();
         }
@@ -2014,7 +2011,7 @@ export class FiberGisMap extends Component {
         this.state.selectedCableId = null;
         this.state.selectedSiteId = null;
         if (node && this.hasCoordinates(node)) {
-            this.setCableDraftFromNode(node);
+            await this.setCableDraftFromNode(node);
         } else {
             this.notification.add("Selecciona el elemento de origen del cable.", { type: "info" });
         }
@@ -2027,14 +2024,36 @@ export class FiberGisMap extends Component {
         }
     }
 
-    setCableDraftFromNode(node) {
-        this.state.cableDraftFromNodeId = node.id;
+    async setCableDraftFromNode(node) {
+        const nodeId = node.id;
+        const requestId = this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
+        let availableBocas;
+        try {
+            availableBocas = await this.availableCableBocas(node);
+        } catch (error) {
+            this.notification.add(error?.data?.message || "No se han podido consultar las bocas libres.", { type: "danger" });
+            return;
+        }
+        if (!this.state.cableDraftMode || requestId !== this._cableDraftBocasRequestId) {
+            return;
+        }
+        if (!availableBocas.length) {
+            this.state.cableDraftMode = false;
+            this.notification.add(`No quedan bocas libres en ${node.code || node.name}.`, { type: "warning" });
+            return;
+        }
+        this.state.cableDraftFromNodeId = nodeId;
+        this.state.cableDraftToNodeId = null;
+        this.state.cableDraftFromBocas = availableBocas;
+        this.state.cableDraftToBocas = [];
+        this.state.cableDraftFromBoca = null;
+        this.state.cableDraftToBoca = null;
         this.state.cableDraftViaPoints = [];
         this.state.cableDraftCursor = [node.latitude, node.longitude];
         this._draftPreviewCursor = null;
         this.selectNode(node);
         this.notification.add(
-            "Pulsa sobre el mapa para a\u00f1adir esquinas y sobre otro elemento para finalizar.",
+            "Pulsa sobre el mapa para a\u00f1adir esquinas y sobre otro elemento para elegir las bocas.",
             { type: "info" }
         );
     }
@@ -2045,14 +2064,102 @@ export class FiberGisMap extends Component {
 
     cancelCableDrawing(notify = true) {
         const wasActive = this.state.cableDraftMode;
+        this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
         this.state.cableDraftMode = false;
         this.state.cableDraftFromNodeId = null;
+        this.state.cableDraftToNodeId = null;
         this.state.cableDraftViaPoints = [];
         this.state.cableDraftCursor = null;
+        this.state.cableDraftFromBoca = null;
+        this.state.cableDraftToBoca = null;
+        this.state.cableDraftFromBocas = [];
+        this.state.cableDraftToBocas = [];
         this._draftPreviewCursor = null;
         this.state.cableDraftSaving = false;
+        this.state.cableDraftChainIds = [];
+        this.state.cableDraftFinalProfileId = false;
+        this.state.showCableDraftFinalize = false;
+        this.state.cableDraftFinalizing = false;
         if (wasActive && notify) {
             this.notification.add("Trazado de cable cancelado.", { type: "info" });
+        }
+    }
+
+    finishCableDraftTracing() {
+        if (!this.state.cableDraftChainIds.length) {
+            this.cancelCableDrawing();
+            return;
+        }
+        this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
+        this.state.cableDraftMode = false;
+        this.state.cableDraftFromNodeId = null;
+        this.state.cableDraftToNodeId = null;
+        this.state.cableDraftViaPoints = [];
+        this.state.cableDraftCursor = null;
+        this.state.cableDraftFromBoca = null;
+        this.state.cableDraftToBoca = null;
+        this.state.cableDraftFromBocas = [];
+        this.state.cableDraftToBocas = [];
+        this._draftPreviewCursor = null;
+        this.state.cableDraftFinalProfileId = false;
+        this.state.showCableDraftFinalize = true;
+        this.state.cableDraftSaving = false;
+    }
+
+    cancelCableDraftFinalization() {
+        this.state.showCableDraftFinalize = false;
+        this.state.cableDraftChainIds = [];
+        this.state.cableDraftFinalProfileId = false;
+        this.notification.add(
+            "Se conservan los cables con la tipología actual. Puedes cambiarla desde sus fichas.",
+            { type: "warning" }
+        );
+    }
+
+    async finalizeCableDraftChain() {
+        const profileId = Number(this.state.cableDraftFinalProfileId);
+        const cableIds = [...this.state.cableDraftChainIds];
+        if (!profileId || !cableIds.length || this.state.cableDraftFinalizing) {
+            return;
+        }
+        this.state.cableDraftFinalizing = true;
+        try {
+            const result = await this.orm.call(
+                "fiber.gis.cable",
+                "finalize_map_cable_chain",
+                [cableIds, profileId]
+            );
+            this.state.showCableDraftFinalize = false;
+            this.state.cableDraftChainIds = [];
+            this.state.cableDraftFinalProfileId = false;
+            this.state.cableDraftFinalizing = false;
+            await this.loadData();
+            const lastCable = this.state.cables.find((item) => item.id === cableIds[cableIds.length - 1]);
+            if (lastCable) {
+                this.selectCable(lastCable);
+            }
+            this.notification.add(
+                `Trazado finalizado: ${cableIds.length} cable(s) con tipología ${result.profile}.`,
+                { type: "success" }
+            );
+            for (const sangria of result.sangria_results || []) {
+                if (sangria.created) {
+                    this.notification.add(
+                        `Sangría en ${sangria.node}: ${sangria.created} fibras en ${sangria.tray}.` +
+                        (sangria.skipped ? ` ${sangria.skipped} pares ocupados se dejaron sin modificar.` : ""),
+                        { type: "info" }
+                    );
+                } else if (sangria.note) {
+                    this.notification.add(`${sangria.node}: ${sangria.note}`, { type: "warning" });
+                }
+            }
+            this.cancelCableDrawing(false);
+        } catch (error) {
+            this.state.cableDraftFinalizing = false;
+            this.notification.add(
+                error?.data?.message || "No se ha podido aplicar la tipología al trazado.",
+                { type: "danger" }
+            );
         }
     }
 
@@ -2069,6 +2176,11 @@ export class FiberGisMap extends Component {
         }
         if (this.state.cableDraftFromNodeId) {
             this.state.cableDraftFromNodeId = null;
+            this.state.cableDraftFromBoca = null;
+            this.state.cableDraftFromBocas = [];
+            this.state.cableDraftToNodeId = null;
+            this.state.cableDraftToBoca = null;
+            this.state.cableDraftToBocas = [];
             this.state.cableDraftCursor = null;
             this.notification.add("Selecciona de nuevo el elemento de origen.", { type: "info" });
         }
@@ -2098,7 +2210,7 @@ export class FiberGisMap extends Component {
             return;
         }
         if (!this.state.cableDraftFromNodeId) {
-            this.setCableDraftFromNode(node);
+            await this.setCableDraftFromNode(node);
             return;
         }
         if (node.id === this.state.cableDraftFromNodeId) {
@@ -2106,6 +2218,39 @@ export class FiberGisMap extends Component {
             return;
         }
 
+        const requestId = this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
+        let availableBocas;
+        try {
+            availableBocas = await this.availableCableBocas(node);
+        } catch (error) {
+            this.notification.add(error?.data?.message || "No se han podido consultar las bocas libres.", { type: "danger" });
+            return;
+        }
+        if (!this.state.cableDraftMode || requestId !== this._cableDraftBocasRequestId) {
+            return;
+        }
+        if (!availableBocas.length) {
+            this.notification.add(`No quedan bocas libres en ${node.code || node.name}.`, { type: "warning" });
+            return;
+        }
+        this.state.cableDraftToNodeId = node.id;
+        this.state.cableDraftToBocas = availableBocas;
+        this.state.cableDraftToBoca = null;
+    }
+
+    cancelCableDraftDestination() {
+        this.state.cableDraftToNodeId = null;
+        this.state.cableDraftToBoca = null;
+        this.state.cableDraftToBocas = [];
+    }
+
+    async saveCableDraft(continueTracing = false) {
+        const node = this.cableDraftToNode;
+        const fromBoca = Number(this.state.cableDraftFromBoca);
+        const toBoca = Number(this.state.cableDraftToBoca);
+        if (!node || !fromBoca || !toBoca || this.state.cableDraftSaving) {
+            return;
+        }
         this.state.cableDraftSaving = true;
         try {
             const result = await this.orm.call(
@@ -2118,19 +2263,49 @@ export class FiberGisMap extends Component {
                     this.state.plan?.id || false,
                     this.state.cableDraftRouteKind,
                     Number(this.state.cableDraftTypeId) || false,
+                    fromBoca,
+                    toBoca,
                 ]
             );
-            this.cancelCableDrawing(false);
+            const destinationNodeId = node.id;
+            this.state.cableDraftChainIds = [...this.state.cableDraftChainIds, result.id];
             await this.loadData();
-            const cable = this.state.cables.find((item) => item.id === result.id);
-            if (cable) {
-                this.selectCable(cable);
-            }
             const length = Math.round(result.length_m || 0);
-            this.notification.add(`Cable creado en el mapa: ${result.name} (${length} m)`, { type: "success" });
+            if (continueTracing) {
+                const nextSource = this.state.nodes.find((item) => item.id === destinationNodeId);
+                if (nextSource) {
+                    await this.setCableDraftFromNode(nextSource);
+                }
+                this.state.cableDraftSaving = false;
+                this.notification.add(
+                    `Cable creado: ${result.name} (${length} m). Continúa desde ${nextSource?.code || nextSource?.name || "la caja de destino"}.`,
+                    { type: "success" }
+                );
+            } else {
+                this.finishCableDraftTracing();
+            }
         } catch (error) {
+            try {
+                const [fromBocas, toBocas] = await Promise.all([
+                    this.availableCableBocas(this.cableDraftFromNode),
+                    this.availableCableBocas(this.cableDraftToNode),
+                ]);
+                this.state.cableDraftFromBocas = fromBocas;
+                this.state.cableDraftToBocas = toBocas;
+                if (!fromBocas.includes(Number(this.state.cableDraftFromBoca))) {
+                    this.state.cableDraftFromBoca = null;
+                }
+                if (!toBocas.includes(Number(this.state.cableDraftToBoca))) {
+                    this.state.cableDraftToBoca = null;
+                }
+            } catch {
+                // Se conserva el error original de creación si falla la actualización de opciones.
+            }
             this.state.cableDraftSaving = false;
-            this.notification.add("No se ha podido crear el cable desde el mapa.", { type: "danger" });
+            this.notification.add(
+                error?.data?.message || "No se ha podido crear el cable desde el mapa.",
+                { type: "danger" }
+            );
             console.error("Fiber GIS: error al crear el cable desde el mapa", error);
         }
     }
@@ -2457,13 +2632,17 @@ export class FiberGisMap extends Component {
 
     onMapDoubleClick(ev) {
         const owner = this.mapEventOwner(ev.target);
-        if (!owner || !["node", "site"].includes(owner.kind)) {
+        if (!owner || !["node", "site", "cable"].includes(owner.kind)) {
             return;
         }
         ev.preventDefault();
         ev.stopPropagation();
         this.openMapRecord(
-            owner.kind === "node" ? "fiber.gis.node" : "fiber.gis.site",
+            owner.kind === "node"
+                ? "fiber.gis.node"
+                : owner.kind === "site"
+                    ? "fiber.gis.site"
+                    : "fiber.gis.cable",
             owner.id
         );
     }

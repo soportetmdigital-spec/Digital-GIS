@@ -13,6 +13,8 @@
                         <field name="operation" widget="radio"/>
                         <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
                         <field name="available_cable_ids" invisible="1"/>
+                        <field name="available_pass_input_cable_ids" invisible="1"/>
+                        <field name="available_pass_output_cable_ids" invisible="1"/>
                         <field name="available_fiber_ids" invisible="1"/>
                         <field name="available_other_fiber_ids" invisible="1"/>
                         <field name="available_drop_cable_ids" invisible="1"/>
@@ -27,13 +29,15 @@
                     </group>
                     <group col="2" class="o_fiber_tray_wizard_cables">
                         <group class="o_fiber_tray_wizard_half">
-                            <field name="cable_id" domain="[('id', 'in', available_cable_ids)]" readonly="operation == 'customer_drop' and customer_drop_source == 'splitter'" required="not (operation == 'customer_drop' and customer_drop_source == 'splitter')"/>
+                            <field name="cable_id" string="Cable entrada" domain="[('id', 'in', available_pass_input_cable_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_boca': True}" invisible="operation != 'pass'" required="operation == 'pass'"/>
+                            <field name="cable_id" domain="[('id', 'in', available_cable_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_boca': True}" readonly="operation == 'customer_drop' and customer_drop_source == 'splitter'" required="not (operation == 'customer_drop' and customer_drop_source == 'splitter')" invisible="operation == 'pass'"/>
                             <field name="cable_topology" readonly="1"/>
                             <field name="customer_splitter_id" domain="[('id', 'in', available_splitter_ids)]" invisible="operation != 'customer_drop' or customer_drop_source != 'splitter'"/>
                             <field name="customer_splitter_output_id" domain="[('id', 'in', available_splitter_output_ids)]" invisible="operation != 'customer_drop' or customer_drop_source != 'splitter'"/>
                         </group>
-                        <group class="o_fiber_tray_wizard_half" invisible="operation not in ('fusion', 'splitter_fusion', 'customer_drop')">
-                            <field name="other_cable_id" domain="[('id', 'in', available_cable_ids), ('id', '!=', cable_id)]" invisible="operation != 'fusion'"/>
+                        <group class="o_fiber_tray_wizard_half" invisible="operation not in ('fusion', 'splitter_fusion', 'customer_drop', 'pass')">
+                            <field name="pass_output_cable_id" string="Cable salida" domain="[('id', 'in', available_pass_output_cable_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_boca': True}" invisible="operation != 'pass'" required="operation == 'pass'"/>
+                            <field name="other_cable_id" domain="[('id', 'in', available_cable_ids), ('id', '!=', cable_id)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_boca': True}" invisible="operation != 'fusion'"/>
                             <field name="other_cable_topology" readonly="1" invisible="operation != 'fusion'"/>
                             <field name="target_splitter_id" domain="[('id', 'in', available_splitter_ids)]" invisible="operation != 'splitter_fusion'"/>
                             <field name="target_splitter_output_id" domain="[('id', 'in', available_target_splitter_output_ids)]" invisible="operation != 'splitter_fusion'"/>
@@ -43,8 +47,7 @@
                     </group>
                     <group col="2" class="o_fiber_tray_wizard_cables">
                         <group class="o_fiber_tray_wizard_half">
-                            <field name="tray_id" domain="[('node_id', '=', node_id)]"/>
-                            <field name="pass_tray_id" domain="[('node_id', '=', node_id)]" invisible="operation != 'pass'"/>
+                            <field name="tray_id" domain="[('node_id', '=', node_id)]" required="1"/>
                             <field name="splitter_ratio" invisible="operation != 'splitter'"/>
                             <field name="splitter_name" invisible="operation != 'splitter'" placeholder="Se genera automaticamente si se deja vacio"/>
                         </group>
@@ -59,19 +62,21 @@
                         </group>
                     </group>
                     <group invisible="operation in ('fusion', 'customer_drop')" class="o_fiber_tray_wizard_fibers" col="1">
-                        <field name="selected_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                        <div class="text-muted" invisible="operation != 'pass'">Las fibras no marcadas se emparejan por número entre los dos cables y continúan. Marca aquí las fibras que se cortan y quedan en punta.</div>
+                        <field name="selected_fiber_ids" string="Fibras cortadas en punta" widget="fiber_color_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" invisible="operation != 'pass'" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                        <field name="selected_fiber_ids" string="Fibras" widget="fiber_color_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" invisible="operation in ('fusion', 'customer_drop', 'pass')" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
                     </group>
                     <group invisible="operation != 'fusion'" class="o_fiber_tray_wizard_fibers o_fiber_tray_wizard_fusion" col="2">
                         <group string="Cable principal" class="o_fiber_tray_wizard_half" col="1">
-                            <field name="fusion_input_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                            <field name="fusion_input_fiber_ids" widget="fiber_color_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
                         </group>
                         <group string="Otro cable" class="o_fiber_tray_wizard_half" col="1">
-                            <field name="fusion_output_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_other_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                            <field name="fusion_output_fiber_ids" widget="fiber_color_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_other_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
                         </group>
                     </group>
                     <group invisible="operation != 'customer_drop' or customer_drop_source != 'fiber'" class="o_fiber_tray_wizard_fibers" col="1">
                         <group string="Fibra de origen" class="o_fiber_tray_wizard_half" col="1" invisible="customer_drop_source != 'fiber'">
-                            <field name="selected_fiber_ids" widget="many2many_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
+                            <field name="selected_fiber_ids" widget="fiber_color_checkboxes" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" domain="[('id', 'in', available_fiber_ids)]" nolabel="1" colspan="1" class="o_fiber_fiber_picker"/>
                         </group>
                     </group>
                     <group string="Compatibilidad" invisible="1">

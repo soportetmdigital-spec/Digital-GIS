@@ -45,6 +45,7 @@ class FiberGisPort(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         for values in vals_list:
             if values.get("fiber_id"):
                 values.setdefault("employee_id", work_employee_id(self.env))
@@ -55,6 +56,7 @@ class FiberGisPort(models.Model):
         return ports
 
     def write(self, values):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         values = dict(values)
         work = bool({"fiber_id", "status", "notes", "employee_id"}.intersection(values))
         if work:

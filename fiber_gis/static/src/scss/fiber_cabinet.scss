@@ -1,0 +1,213 @@
+.o_fiber_cabinet {
+    height: calc(100vh - 46px);
+    min-height: 620px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #f3f6fa;
+    color: #172b4d;
+    font-family: Inter, "Segoe UI", sans-serif;
+
+    .o_fiber_cabinet_topbar { height: 76px; flex: 0 0 76px; padding: 0 28px; display: flex; align-items: center; gap: 20px; background: #fff; border-bottom: 1px solid #e1e7ef; box-shadow: 0 2px 8px rgba(23, 43, 77, 0.03); }
+    .o_fiber_cabinet_brand { display: flex; align-items: center; gap: 13px; min-width: 300px; }
+    .o_fiber_cabinet_brand_icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #0696a0, #07516f); font-size: 18px; box-shadow: 0 5px 15px rgba(8, 126, 139, 0.21); }
+    .o_fiber_cabinet_brand small, .o_fiber_cabinet_section_title small, .o_fiber_cabinet_canvas_head small, .o_fiber_cabinet_inspector_head small, .o_fiber_cabinet_patch_title small { display: block; color: #8592a6; font-size: 9px; font-weight: 800; letter-spacing: 1.25px; }
+    .o_fiber_cabinet_brand h1 { margin: 2px 0 0; font-size: 19px; line-height: 1.2; font-weight: 750; }
+    .o_fiber_cabinet_topmetrics { margin-left: auto; display: flex; align-items: center; gap: 25px; color: #74839a; font-size: 12px; }
+    .o_fiber_cabinet_topmetrics strong { color: #203854; font-size: 14px; }
+    .o_fiber_cabinet_workspace { display: grid; grid-template-columns: 245px minmax(580px, 1fr) 310px; min-height: 0; flex: 1; }
+    .o_fiber_cabinet_library, .o_fiber_cabinet_inspector { padding: 22px 18px; background: #fff; min-height: 0; display: flex; flex-direction: column; }
+    .o_fiber_cabinet_library { border-right: 1px solid #e2e8f0; }
+    .o_fiber_cabinet_inspector { border-left: 1px solid #e2e8f0; overflow-y: auto; }
+    .o_fiber_cabinet_section_title, .o_fiber_cabinet_patch_title { display: flex; align-items: center; justify-content: space-between; }
+    .o_fiber_cabinet_section_title h2, .o_fiber_cabinet_canvas_head h2 { margin: 3px 0 0; font-size: 18px; font-weight: 750; }
+    .o_fiber_cabinet_count, .o_fiber_cabinet_patch_title > span { color: #677993; font-size: 11px; font-weight: 700; background: #eef2f7; border-radius: 20px; padding: 4px 9px; }
+    .o_fiber_cabinet_search { height: 38px; display: flex; align-items: center; gap: 9px; margin: 18px 0 13px; padding: 0 11px; border: 1px solid #e1e7ef; border-radius: 8px; color: #8492a6; }
+    .o_fiber_cabinet_search input { width: 100%; border: 0; outline: 0; font-size: 11px; color: #172b4d; background: transparent; }
+    .o_fiber_cabinet_library_list { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 7px; }
+    .o_fiber_cabinet_catalog_item { width: 100%; text-align: left; padding: 9px 8px; border: 1px solid transparent; background: transparent; border-radius: 9px; display: flex; align-items: center; gap: 10px; transition: .15s ease; }
+    .o_fiber_cabinet_catalog_item:hover { background: #f7fafc; border-color: #e5ebf2; transform: translateY(-1px); }
+    .o_fiber_cabinet_catalog_icon { flex: 0 0 38px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: #eef5fa; color: #356c89; font-size: 15px; }
+    .o_fiber_cabinet_catalog_product_photo { flex: 0 0 58px; width: 58px; height: 38px; padding: 1px; box-sizing: border-box; object-fit: contain; border: 1px solid #e6ebf0; border-radius: 5px; background: #fff; }
+    .o_fiber_cabinet_catalog_product_photo[src$="fs_fhu_panel_48f_sc_upc.webp"] { object-fit: cover; object-position: center; }
+    .o_fiber_cabinet_catalog_icon.is-patch_panel, .o_fiber_cabinet_catalog_icon.is-odf, .o_fiber_cabinet_catalog_icon.is-odf_96 { color: #087e8b; background: #e1f4f3; }
+    .o_fiber_cabinet_catalog_icon.is-switch, .o_fiber_cabinet_catalog_icon.is-switch_48 { color: #6951a3; background: #eee9fa; }
+    .o_fiber_cabinet_catalog_icon.is-router, .o_fiber_cabinet_catalog_icon.is-olt, .o_fiber_cabinet_catalog_icon.is-firewall { color: #235fc4; background: #e8efff; }
+    .o_fiber_cabinet_catalog_icon.is-ups, .o_fiber_cabinet_catalog_icon.is-pdu { color: #a26320; background: #fff2df; }
+    .o_fiber_cabinet_catalog_text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .o_fiber_cabinet_catalog_text strong { font-size: 11px; font-weight: 700; }
+    .o_fiber_cabinet_catalog_text small { color: #8995a6; font-size: 10px; }
+    .o_fiber_cabinet_add { color: #a6b2c0; font-size: 11px; }
+    .o_fiber_cabinet_catalog_actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+    .o_fiber_cabinet_catalog_edit { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid #e0e7ed; border-radius: 6px; color: #64758a; background: #fff; cursor: pointer; }
+    .o_fiber_cabinet_catalog_edit:hover { color: #087e8b; border-color: #87c6cb; background: #eefafa; }
+    .o_fiber_cabinet_library_hint { display: flex; gap: 9px; margin-top: 14px; padding: 11px; border-radius: 9px; color: #59728a; background: #f3f8fb; font-size: 10px; line-height: 1.55; }
+    .o_fiber_cabinet_library_hint i { margin-top: 2px; color: #e3a433; }
+    .o_fiber_cabinet_center { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 23px 20px 16px; }
+    .o_fiber_cabinet_canvas_head { display: flex; align-items: end; justify-content: space-between; }
+    .o_fiber_cabinet_live { color: #6b8390; font-size: 10px; display: flex; align-items: center; gap: 6px; }
+    .o_fiber_cabinet_live i { width: 7px; height: 7px; background: #28b37b; border-radius: 100%; box-shadow: 0 0 0 3px rgba(40, 179, 123, 0.13); }
+    .o_fiber_cabinet_scroll_tools { flex: 0 0 auto; min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #718097; font-size: 10px; }
+    .o_fiber_cabinet_scroll_tools .btn { min-width: 34px; height: 30px; margin-left: 5px; padding: 0 8px; border: 1px solid #dce4ec; }
+    .o_fiber_cabinet_zoom { display: flex; align-items: center; gap: 4px; }
+    .o_fiber_cabinet_zoom input { width: 92px; accent-color: #087e8b; }
+    .o_fiber_cabinet_canvas_scroll { flex: 1 1 0; height: 0; min-height: 180px; overflow: auto; display: block; padding: 12px 8px 16px; scrollbar-width: auto; scrollbar-color: #93a5b9 #e8edf3; }
+    .o_fiber_cabinet_canvas_scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+    .o_fiber_cabinet_canvas_scroll::-webkit-scrollbar-thumb { background: #93a5b9; border: 3px solid #e8edf3; border-radius: 10px; }
+    .o_fiber_cabinet_canvas_scroll::-webkit-scrollbar-track { background: #e8edf3; border-radius: 10px; }
+    .o_fiber_cabinet_rack_shell { display: flex; align-items: stretch; gap: 7px; box-sizing: border-box; flex: 0 0 auto; width: max-content; margin: 0 auto; padding: 13px 10px; border-radius: 8px; border: 1px solid #aab8c9; background: linear-gradient(90deg, #cad4df 0%, #f7f9fb 8%, #e9eef3 92%, #bbc7d4 100%); box-shadow: 0 18px 45px rgba(30, 53, 80, 0.12), inset 0 0 0 3px rgba(255, 255, 255, 0.61); }
+    .o_fiber_cabinet_racks { position: relative; display: flex; align-items: flex-start; gap: 24px; width: max-content; min-width: 100%; padding: 5px 10px 20px; }
+    .o_fiber_cabinet_connection_layer { position: absolute; z-index: 6; top: 0; left: 0; display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    .o_fiber_cabinet_rack_column { flex: 0 0 auto; padding: 5px; border-radius: 9px; }
+    .o_fiber_cabinet_rack_column.is-active { background: rgba(8,126,139,.07); box-shadow: inset 0 0 0 1px rgba(8,126,139,.25); }
+    .o_fiber_cabinet_rack_heading { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 6px; color: #394f67; font-size: 11px; }
+    .o_fiber_cabinet_rack_heading button { width: 24px; height: 22px; padding: 0; border: 1px solid #d8e2e9; border-radius: 5px; color: #087e8b; background: #fff; }
+    .o_fiber_cabinet_remove_zone { flex: 0 0 82px; width: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px; box-sizing: border-box; border: 1px dashed #aebdca; border-radius: 6px; color: #60798a; background: rgba(255,255,255,.58); text-align: center; font-size: 9px; line-height: 1.35; transition: .15s ease; }
+    .o_fiber_cabinet_remove_zone i { font-size: 17px; }
+    .o_fiber_cabinet_remove_zone.is-active { border-color: #d16656; color: #a54336; background: #fff0eb; box-shadow: inset 0 0 0 2px rgba(209,102,86,.12); }
+    .o_fiber_cabinet_rail { width: 24px; display: flex; flex-direction: column; justify-content: space-around; color: #506176; font-size: 8px; }
+    .o_fiber_cabinet_rail span { line-height: 1; }
+    .o_fiber_cabinet_rail.right { text-align: right; }
+    .o_fiber_cabinet_rack { position: relative; box-sizing: border-box; width: 650px; max-width: 650px; min-width: 650px; border: 1px solid #8798aa; border-radius: 3px; background: linear-gradient(90deg,#202c3a 0,#344458 3%,#1c2938 8%,#182331 92%,#344458 97%,#202c3a 100%); box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.53); }
+    .o_fiber_cabinet_u_slot { position: relative; height: 44px; box-sizing: border-box; border-bottom: 1px solid rgba(97, 114, 134, 0.23); color: #9eacba; font-size: 8px; padding: 2px 5px; }
+    .o_fiber_cabinet_screws { position: absolute; inset: 4px 5px; display: flex; justify-content: space-between; pointer-events: none; }
+    .o_fiber_cabinet_screws i { width: 5px; height: 5px; border-radius: 50%; border: 1px solid #8998a6; background: #253443; }
+    .o_fiber_cabinet_equipment { position: absolute; z-index: 2; left: 27px; right: 27px; min-height: 35px; border: 1px solid #98a8b8; border-radius: 5px; padding: 0; display: block; overflow: hidden; color: #e9eff5; background: linear-gradient(180deg,#718297,#4b5d71 48%,#35465a); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 1px rgba(255, 255, 255, 0.44); cursor: grab; }
+    .o_fiber_cabinet_equipment:active { cursor: grabbing; }
+    .o_fiber_cabinet_equipment.is-selected { z-index: 3; outline: 2px solid #54d6d3; box-shadow: 0 0 0 4px rgba(34, 185, 180, 0.20), 0 5px 14px rgba(0, 0, 0, 0.47); }
+    .o_fiber_cabinet_equipment.is-patch_panel, .o_fiber_cabinet_equipment.is-odf, .o_fiber_cabinet_equipment.is-odf_96 { background: linear-gradient(180deg,#1b3138,#0c1c24); }
+    .o_fiber_cabinet_equipment.is-switch, .o_fiber_cabinet_equipment.is-switch_48 { background: linear-gradient(180deg,#34404b,#171f28); }
+    .o_fiber_cabinet_equipment.is-router, .o_fiber_cabinet_equipment.is-olt, .o_fiber_cabinet_equipment.is-firewall { background: linear-gradient(180deg,#394a59,#182634); }
+    .o_fiber_cabinet_equipment.is-ups, .o_fiber_cabinet_equipment.is-pdu { background: linear-gradient(180deg,#252a30,#11161c); }
+    .o_fiber_cabinet_face { position: absolute; inset: 0; display: block; padding: 0; overflow: hidden; }
+    .o_fiber_cabinet_product_photo { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; box-sizing: border-box; object-fit: fill; border-radius: 3px; background: #fff; pointer-events: none; }
+    .o_fiber_cabinet_product_photo[src$="fs_fhu_panel_48f_sc_upc.webp"] { object-fit: cover; object-position: center 50%; }
+    .o_fiber_cabinet_brandmark { position: absolute; z-index: 2; left: 4px; top: 50%; width: 20px; height: 20px; display: grid; place-items: center; transform: translateY(-50%); border-radius: 3px; color: #c7d4df; background: linear-gradient(145deg,#566b7b,#283743); box-shadow: inset 0 1px rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.4); font-size: 9px; }
+    .o_fiber_cabinet_equipment_info { position: absolute; z-index: 4; top: 2px; left: 3px; max-width: 17%; display: flex; flex-direction: column; gap: 1px; overflow: hidden; padding: 2px 4px; border-radius: 3px; color: #fff; background: rgba(9,18,28,.76); pointer-events: none; }
+    .o_fiber_cabinet_equipment_info strong { overflow: hidden; text-overflow: ellipsis; font-size: 8px; line-height: 1.15; white-space: nowrap; }
+    .o_fiber_cabinet_equipment_info small { color: #e0e8ef; font-size: 6px; line-height: 1.1; white-space: nowrap; }
+    .o_fiber_cabinet_port_hotspot { position: absolute; z-index: 5; width: 3%; min-width: 10px; max-width: 18px; height: 65%; min-height: 15px; padding: 0; transform: translate(-50%, -50%); border: 1px solid transparent; border-radius: 3px; color: rgba(255,255,255,.72); background: transparent; cursor: crosshair; font-size: 6px; font-weight: 700; line-height: 1; text-align: center; text-shadow: 0 1px 2px #000; opacity: .35; }
+    .o_fiber_cabinet_port_hotspot.has-photo { height: 34%; min-height: 10px; background: rgba(1,10,18,.06); }
+    .o_fiber_cabinet_port_hotspot.single-row { height: 65%; min-height: 15px; }
+    .o_fiber_cabinet_port_hotspot.generic { border-color: rgba(214,230,239,.65); background: linear-gradient(180deg,#657784 0 16%,#101a22 17%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); }
+    .o_fiber_cabinet_port_hotspot.has-fiber { opacity: .8; box-shadow: inset 0 0 0 2px var(--fiber-color, #26d3c4); }
+    .o_fiber_cabinet_port_hotspot.is-connected { opacity: 1; box-shadow: inset 0 0 0 2px #4ed8bd, 0 0 5px rgba(78,216,189,.9); }
+    .o_fiber_cabinet_port_hotspot.is-source { opacity: 1; border-color: #fff; background: rgba(255,196,61,.85); box-shadow: 0 0 0 2px #126d86, 0 0 9px #fff; }
+    .o_fiber_cabinet_port_hotspot:hover, .o_fiber_cabinet_port_hotspot:focus-visible { opacity: 1; border-color: #fff; outline: 2px solid #1dbac4; background-color: rgba(44,214,218,.46); }
+    .o_fiber_cabinet_drive_bays { position: absolute; right: 8px; top: 50%; display: flex; gap: 4px; margin-left: auto; transform: translateY(-50%); pointer-events: none; }
+    .o_fiber_cabinet_drive_bays i { width: 30px; height: 18px; border: 1px solid #71808b; border-radius: 2px; background: linear-gradient(180deg,#202a33,#0f151b); box-shadow: inset 0 1px rgba(255,255,255,.13); }
+    .o_fiber_cabinet_fanrow, .o_fiber_cabinet_pdu_sockets, .o_fiber_cabinet_cable_fingers { position: absolute; right: 9px; top: 50%; display: flex; align-items: center; gap: 7px; transform: translateY(-50%); pointer-events: none; }
+    .o_fiber_cabinet_fanrow i { width: 17px; height: 17px; border: 2px solid #8b9aa4; border-radius: 50%; background: radial-gradient(circle,#7b8b94 0 2px,#26323a 3px 5px,transparent 6px); }
+    .o_fiber_cabinet_pdu_sockets i { width: 9px; height: 12px; border-radius: 5px; background: #11191e; border: 1px solid #89949a; }
+    .o_fiber_cabinet_shelf_lip { position: absolute; left: 28%; right: 8px; top: 50%; height: 9px; transform: translateY(-50%); border-top: 2px solid #c4d1db; border-bottom: 2px solid #506170; background: linear-gradient(180deg,#788a98,#344552); }
+    .o_fiber_cabinet_cable_fingers i { width: 8px; height: 13px; border: 1px solid #9aa8b2; border-top: 0; border-radius: 0 0 5px 5px; }
+    .o_fiber_cabinet_leds { position: absolute; z-index: 3; right: 18px; top: 50%; display: flex; gap: 3px; transform: translateY(-50%); }
+    .o_fiber_cabinet_leds i { width: 4px; height: 4px; border-radius: 50%; background: #49c78e; box-shadow: 0 0 4px rgba(73,199,142,.65); }
+    .o_fiber_cabinet_connection_hint { margin: 6px 0 10px; padding: 7px 10px; border: 1px solid #b9e3e5; border-radius: 6px; color: #176d76; background: #effbfb; font-size: 10px; }
+    .o_fiber_cabinet_connection_hint i { margin-right: 5px; }
+    .o_fiber_cabinet_link_badge { position: absolute; z-index: 4; top: 2px; right: 8px; padding: 2px 5px; border-radius: 8px; color: #fff; background: #087e8b; font-size: 7px; line-height: 1.2; }
+    .o_fiber_cabinet_equipment_icon { font-size: 12px; color: rgba(255, 255, 255, 0.84); }
+    .o_fiber_cabinet_canvas_foot { color: #8290a2; display: flex; justify-content: space-between; font-size: 10px; }
+    .o_fiber_cabinet_canvas_foot i { margin-right: 5px; color: #0e8793; }
+    .o_fiber_cabinet_inspector_head { display: flex; gap: 11px; align-items: center; }
+    .o_fiber_cabinet_inspector_head h2 { font-size: 14px; margin: 3px 0 0; }
+    .o_fiber_cabinet_catalog_dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
+    .o_fiber_cabinet_catalog_dimensions label { display: flex; flex-direction: column; gap: 5px; color: #718097; font-size: 10px; font-weight: 700; }
+    .o_fiber_cabinet_catalog_dimensions input, .o_fiber_cabinet_name_label input { width: 100%; min-width: 0; height: 34px; padding: 0 9px; border: 1px solid #dce4ec; border-radius: 6px; color: #203854; background: #fff; font-size: 11px; font-weight: 500; }
+    .o_fiber_cabinet_catalog_preview { position: relative; width: 100%; height: 180px; min-height: 78px; max-height: 320px; margin: 13px 0 6px; overflow: hidden; border: 1px solid #becbd6; border-radius: 6px; background: #eef2f5; touch-action: none; }
+    .o_fiber_cabinet_catalog_preview > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+    .o_fiber_cabinet_catalog_preview_empty { position: absolute; inset: 0; display: grid; place-items: center; color: #74869a; font-size: 24px; }
+    .o_fiber_cabinet_catalog_port_marker { position: absolute; width: 21px; height: 21px; padding: 0; transform: translate(-50%, -50%); border: 1px solid #fff; border-radius: 50%; color: #fff; background: rgba(5, 115, 130, .9); box-shadow: 0 1px 4px rgba(0,0,0,.7); font-size: 8px; font-weight: 700; cursor: grab; touch-action: none; }
+    .o_fiber_cabinet_catalog_port_marker:active { cursor: grabbing; background: #d77d13; }
+    .o_fiber_cabinet_catalog_edit_hint { margin: 0 0 10px; color: #8290a2; font-size: 9px; }
+    .o_fiber_cabinet_catalog_edit_actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .o_fiber_cabinet_catalog_modal_backdrop { position: fixed; z-index: 1090; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(13, 25, 39, .62); }
+    .o_fiber_cabinet_catalog_modal { display: flex; flex-direction: column; width: 96vw; max-width: 1360px; height: 92vh; max-height: 790px; min-height: 480px; overflow: hidden; border: 1px solid #d7e0e8; border-radius: 13px; background: #fff; box-shadow: 0 26px 90px rgba(10, 24, 39, .35); }
+    .o_fiber_cabinet_catalog_modal_head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 19px 24px; border-bottom: 1px solid #e5ebf0; }
+    .o_fiber_cabinet_catalog_modal_head small { color: #7d8b9c; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
+    .o_fiber_cabinet_catalog_modal_head h2 { margin: 3px 0 0; color: #20354c; font-size: 20px; }
+    .o_fiber_cabinet_catalog_modal_head > button { width: 36px; height: 36px; border: 1px solid #dce4eb; border-radius: 8px; color: #55677c; background: #fff; }
+    .o_fiber_cabinet_catalog_modal_body { min-height: 0; flex: 1; display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 22px; padding: 22px 24px; overflow: auto; }
+    .o_fiber_cabinet_catalog_modal_form { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+    .o_fiber_cabinet_catalog_modal_form .o_fiber_cabinet_name_label { margin-top: 0; }
+    .o_fiber_cabinet_catalog_modal_form .o_fiber_cabinet_catalog_dimensions { margin-top: 2px; }
+    .o_fiber_cabinet_catalog_modal_form .o_fiber_cabinet_catalog_edit_hint { margin: 4px 0; font-size: 10px; line-height: 1.55; }
+    .o_fiber_cabinet_catalog_modal_form .o_fiber_cabinet_catalog_edit_actions { margin-top: auto; padding-top: 15px; }
+    .o_fiber_cabinet_catalog_modal_preview { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 24px; border: 1px solid #e1e8ee; border-radius: 10px; background: linear-gradient(135deg, #f8fafc, #edf2f6); }
+    .o_fiber_cabinet_catalog_preview_title { display: flex; justify-content: space-between; gap: 12px; color: #354a60; font-size: 12px; }
+    .o_fiber_cabinet_catalog_preview_title span, .o_fiber_cabinet_catalog_modal_preview > small { color: #7a8999; font-size: 10px; }
+    .o_fiber_cabinet_catalog_modal_preview .o_fiber_cabinet_catalog_preview { margin: 0; min-height: 70px; border-color: #9facb9; background: #dde4ea; box-shadow: 0 7px 18px rgba(37, 54, 72, .12); }
+    .o_fiber_cabinet_name_label { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; color: #718097; font-size: 10px; font-weight: 700; }
+    .o_fiber_cabinet_equipment_name_input { width: 100%; height: 34px; padding: 0 9px; border: 1px solid #dce4ec; border-radius: 6px; color: #203854; background: #fff; font-size: 11px; font-weight: 500; }
+    .o_fiber_cabinet_save_name { align-self: flex-start; margin-top: 7px; }
+    .o_fiber_cabinet_remove_hint { display: block; padding: 10px 9px; border-radius: 6px; color: #718097; background: #f4f7fa; font-size: 9px; text-align: center; }
+    .o_fiber_cabinet_inspector_meta { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 20px 0; }
+    .o_fiber_cabinet_inspector_meta div { padding: 10px 8px; display: flex; flex-direction: column; gap: 5px; border: 1px solid #e8edf3; border-radius: 8px; }
+    .o_fiber_cabinet_inspector_meta small { color: #8592a6; font-size: 9px; }
+    .o_fiber_cabinet_inspector_meta strong { font-size: 12px; }
+    .o_fiber_cabinet_patch { min-height: 0; display: flex; flex-direction: column; flex: 1; }
+    .o_fiber_cabinet_patch_title h3 { margin: 3px 0 0; font-size: 14px; }
+    .o_fiber_cabinet_ports { overflow: auto; min-height: 100px; max-height: 54vh; margin-top: 12px; border: 1px solid #e5eaf0; border-radius: 8px; }
+    .o_fiber_cabinet_port_row { min-height: 34px; padding: 5px 7px; display: grid; grid-template-columns: 25px 9px minmax(0,1fr); gap: 7px; align-items: center; border-bottom: 1px solid #f0f3f7; }
+    .o_fiber_cabinet_port_row:last-child { border: 0; }
+    .o_fiber_cabinet_port_number { color: #7b899c; font-size: 9px; text-align: right; font-variant-numeric: tabular-nums; }
+    .o_fiber_cabinet_port_status { width: 8px; height: 8px; border-radius: 50%; background: #d6dee7; box-shadow: inset 0 0 0 1px #b9c4d0; }
+    .o_fiber_cabinet_port_status.is-used { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #c8d5df; }
+    .o_fiber_cabinet_assigned_fiber { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #34465d; font-size: 9px; }
+    .o_fiber_cabinet_assigned_fiber > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .o_fiber_cabinet_assigned_fiber button { flex: 0 0 24px; width: 24px; height: 24px; border: 0; border-radius: 4px; color: #68798d; background: #f1f4f7; }
+    .o_fiber_cabinet_assign_button { justify-self: start; padding: 4px 8px; border: 1px dashed #a8bbc9; border-radius: 5px; color: #147f89; background: #f7fbfc; font-size: 9px; }
+    .o_fiber_cabinet_fiber_picker { grid-column: 1 / -1; min-width: 0; padding: 7px; border: 1px solid #dbe5ec; border-radius: 7px; background: #f7fafc; }
+    .o_fiber_cabinet_fiber_search { display: flex; gap: 5px; }
+    .o_fiber_cabinet_fiber_search input { width: 100%; min-width: 0; height: 31px; padding: 0 8px; border: 1px solid #dce5ec; border-radius: 5px; background: #fff; font-size: 10px; }
+    .o_fiber_cabinet_fiber_search button { flex: 0 0 32px; border: 0; border-radius: 5px; color: #fff; background: #087e8b; }
+    .o_fiber_cabinet_fiber_results { max-height: 170px; margin-top: 5px; overflow: auto; }
+    .o_fiber_cabinet_fiber_results > button { width: 100%; min-height: 36px; padding: 5px; display: flex; align-items: center; gap: 7px; border: 0; border-bottom: 1px solid #e8edf2; text-align: left; color: #34465d; background: transparent; }
+    .o_fiber_cabinet_fiber_results > button:hover { background: #edf5f7; }
+    .o_fiber_cabinet_fiber_results > button > i:first-child { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #d2dce3; }
+    .o_fiber_cabinet_fiber_results > button > span { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .o_fiber_cabinet_fiber_results strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+    .o_fiber_cabinet_fiber_results small, .o_fiber_cabinet_no_fibers { color: #7f8c9d; font-size: 8px; }
+    .o_fiber_cabinet_picker_cancel { margin-top: 5px; padding: 2px 0; border: 0; color: #6d7c8d; background: transparent; font-size: 9px; }
+    .o_fiber_cabinet_fiber_hint { padding: 9px 1px; color: #8592a6; font-size: 9px; line-height: 1.5; }
+    .o_fiber_cabinet_fiber_hint i { color: #0c8995; margin-right: 4px; }
+    .o_fiber_cabinet_interconnection { margin: 0 0 15px; padding: 11px; border: 1px solid #e2e9ef; border-radius: 8px; background: #f8fafc; }
+    .o_fiber_cabinet_interconnection label { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; color: #74839a; font-size: 9px; font-weight: 700; }
+    .o_fiber_cabinet_interconnection input, .o_fiber_cabinet_interconnection select { width: 100%; min-width: 0; height: 30px; padding: 0 7px; border: 1px solid #dce4ec; border-radius: 5px; color: #34465d; background: #fff; font-size: 10px; font-weight: 500; }
+    .o_fiber_cabinet_link_ports { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .o_fiber_cabinet_interconnection > button { width: 100%; margin-top: 4px; }
+    .o_fiber_cabinet_link_list { max-height: 150px; margin-top: 9px; overflow: auto; }
+    .o_fiber_cabinet_link_list > div > span { display: flex; align-items: center; gap: 7px; padding: 7px 3px; border-top: 1px solid #e7edf2; }
+    .o_fiber_cabinet_link_list > div > span > i { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
+    .o_fiber_cabinet_link_list > div > span > span { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .o_fiber_cabinet_link_list strong { overflow: hidden; color: #34465d; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .o_fiber_cabinet_link_list small { color: #8995a6; font-size: 8px; }
+    .o_fiber_cabinet_link_list button { flex: 0 0 24px; width: 24px; height: 24px; border: 0; border-radius: 4px; color: #74839a; background: #edf1f5; }
+    .o_fiber_cabinet_inspector_spacer { flex: 1; min-height: 10px; }
+    .o_fiber_cabinet_inspector_empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #8090a4; padding: 20px; }
+    .o_fiber_cabinet_empty_icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 16px; background: #eef5f7; color: #16808a; font-size: 19px; }
+    .o_fiber_cabinet_inspector_empty h3 { color: #293e58; font-size: 14px; margin: 17px 0 7px; }
+    .o_fiber_cabinet_inspector_empty p { max-width: 230px; font-size: 10px; line-height: 1.65; }
+    .o_fiber_cabinet_legend { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 10px; }
+    .o_fiber_cabinet_legend span { display: flex; align-items: center; gap: 8px; }
+    .o_fiber_cabinet_legend i { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: #d6dee7; }
+    .o_fiber_cabinet_legend i.is-used { background: #0f9da8; }
+    .o_fiber_cabinet_loading, .o_fiber_cabinet_empty { margin: auto; text-align: center; color: #74839a; }
+    .o_fiber_cabinet_loading i { margin-right: 8px; color: #087e8b; }
+    .o_fiber_cabinet_empty h2 { color: #172b4d; }
+    .o_fiber_cabinet_workspace.is-saving { cursor: progress; }
+
+    .o_fiber_cabinet_confirm_backdrop { position: fixed; z-index: 1080; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(14, 27, 41, .48); }
+    .o_fiber_cabinet_confirm_dialog { width: 420px; max-width: 100%; padding: 25px; border: 1px solid #e1e7ed; border-radius: 14px; background: #fff; box-shadow: 0 24px 80px rgba(12, 28, 46, .25); }
+    .o_fiber_cabinet_confirm_icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: #a3323a; background: #fff0f0; }
+    .o_fiber_cabinet_confirm_dialog h2 { margin: 15px 0 8px; color: #24374d; font-size: 18px; }
+    .o_fiber_cabinet_confirm_dialog p { color: #63738a; font-size: 12px; line-height: 1.6; }
+    .o_fiber_cabinet_confirm_warning { padding: 9px 11px; border-radius: 7px; color: #815b18 !important; background: #fff7e6; }
+    .o_fiber_cabinet_confirm_actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+    @media (max-width: 760px) { .o_fiber_cabinet_catalog_modal_backdrop { padding: 8px; } .o_fiber_cabinet_catalog_modal { width: 100%; height: 96vh; max-height: 96vh; min-height: 0; } .o_fiber_cabinet_catalog_modal_head { padding: 14px; } .o_fiber_cabinet_catalog_modal_head h2 { font-size: 16px; } .o_fiber_cabinet_catalog_modal_body { display: flex; flex-direction: column; gap: 16px; padding: 14px; } .o_fiber_cabinet_catalog_modal_preview { min-height: 240px; padding: 14px; } }
+
+    @media (max-width: 1180px) { .o_fiber_cabinet_workspace { grid-template-columns: 230px minmax(360px,1fr) 300px; } .o_fiber_cabinet_center { padding-inline: 17px; } }
+    @media (max-width: 980px) { height: auto; min-height: calc(100vh - 46px); overflow: auto; .o_fiber_cabinet_workspace { grid-template-columns: 220px minmax(330px,1fr); } .o_fiber_cabinet_inspector { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #e2e8f0; min-height: 280px; } .o_fiber_cabinet_topmetrics { display: none; } .o_fiber_cabinet_center { min-height: 700px; } }
+    @media (max-width: 620px) { .o_fiber_cabinet_workspace { display: flex; flex-direction: column; } .o_fiber_cabinet_library { border-right: 0; border-bottom: 1px solid #e2e8f0; max-height: 350px; } .o_fiber_cabinet_topbar { padding-inline: 13px; } .o_fiber_cabinet_brand { min-width: 0; flex: 1; } .o_fiber_cabinet_brand small { font-size: 7px; } .o_fiber_cabinet_brand h1 { font-size: 14px; } .o_fiber_cabinet_center { min-height: 620px; padding-inline: 13px; } .o_fiber_cabinet_rack { width: 650px; min-width: 650px; } }
+}

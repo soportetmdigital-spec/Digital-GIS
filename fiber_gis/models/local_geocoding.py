@@ -7,6 +7,7 @@ LOCALITIES = {"granada": "Granada", "santa_fe": "Santa Fe"}
 
 
 def normalize_place(value):
+    """Normaliza el nombre de una población o lugar para comparar resultados de geocodificación."""
     text = unicodedata.normalize("NFKD", str(value or ""))
     return " ".join("".join(char for char in text if not unicodedata.combining(char)).casefold().split())
 

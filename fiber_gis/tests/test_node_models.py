@@ -32,6 +32,7 @@ class TestNodeModels(TransactionCase):
         self.assertEqual(node.node_kind, "cto")
         self.assertEqual(node.map_icon, "cto")
         self.assertEqual(node.color, "#112233")
+        self.assertEqual(node.cable_entry_count, 4)
 
     def test_explicit_style_wins_and_survives_catalog_changes(self):
         node = self._node(map_icon="star", color="#abcdef")
@@ -76,14 +77,17 @@ class TestNodeModels(TransactionCase):
         self.assertEqual(node.node_category_id, self.model_a)
 
     def test_form_defaults_and_model_onchange(self):
+        self.model_a.cable_entry_count = 2
         defaults = self.nodes.with_context(default_node_category_id=self.model_a.id).default_get([
-            "node_category_id", "node_kind", "map_icon", "color",
+            "node_category_id", "node_kind", "cable_entry_count", "map_icon", "color",
         ])
         self.assertEqual((defaults["map_icon"], defaults["color"]), ("cto", "#112233"))
+        self.assertEqual(defaults["cable_entry_count"], 2)
         node = self.nodes.new({"node_category_id": self.model_b.id, "type_id": self.function.id})
         node._onchange_node_category_id()
         self.assertFalse(node.type_id)
         self.assertEqual((node.map_icon, node.color), ("terminal", "#334455"))
+        self.assertEqual(node.cable_entry_count, 4)
 
     def test_initialization_preserves_legacy_pairs_and_node_style(self):
         node = self._node(type_id=self.function.id, color="#abcdef", map_icon="star")

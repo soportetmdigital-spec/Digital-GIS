@@ -51,7 +51,7 @@ class CableChecks(unittest.TestCase):
         self.assertEqual([item.total_fiber_count for item in profiles], [12, 24])
 
     def test_profile_overrides_stale_form_counts(self):
-        profile = Record(id=7, tube_count=4, fiber_count=6)
+        profile = Record(id=7, tube_count=4, fiber_count=6, gis_type_id=False)
         profile.exists = lambda: profile
         model = Record(browse=lambda identifier: profile)
         values = method("models/cable.py", "_prepare_profile_values")(
@@ -88,7 +88,7 @@ class CableChecks(unittest.TestCase):
             Record(node_id=destination, position=2, line_type="fusion", input_fiber_id=fiber, output_fiber_id=other, **common),
         ])
         left, right = fiber._endpoint_connections(origin), fiber._endpoint_connections(destination)
-        self.assertIn("Resto", left)
+        self.assertIn("Fibra en punta", left)
         self.assertNotIn("Fusi\u00f3n", left)
         self.assertIn("Fusi\u00f3n", right)
         self.assertIn("Cable manual T2 F7", right)

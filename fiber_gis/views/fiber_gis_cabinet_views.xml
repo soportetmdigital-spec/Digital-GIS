@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_fiber_gis_cabinets" model="ir.actions.act_window">
+        <field name="name">Cabecera</field>
+        <field name="res_model">fiber.gis.cabinet</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('rack_group_id', '=', False)]</field>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+    <record id="view_fiber_gis_cabinet_list" model="ir.ui.view">
+        <field name="name">fiber.gis.cabinet.list</field><field name="model">fiber.gis.cabinet</field>
+        <field name="arch" type="xml"><list decoration-muted="not active">
+            <field name="name"/><field name="code"/><field name="node_id"/><field name="site_id"/><field name="height_u"/>
+            <field name="equipment_count"/><field name="occupied_u"/><field name="patch_port_count"/><field name="connected_fiber_count"/><field name="active" optional="hide"/>
+        </list></field>
+    </record>
+    <record id="view_fiber_gis_cabinet_form" model="ir.ui.view">
+        <field name="name">fiber.gis.cabinet.form</field><field name="model">fiber.gis.cabinet</field>
+        <field name="arch" type="xml"><form><header>
+            <button name="action_open_editor" type="object" string="Abrir diseñador de rack" class="btn-primary"/>
+        </header><sheet>
+            <div class="oe_title"><label for="name"/><h1><field name="name" placeholder="Cabecera principal"/></h1></div>
+            <group><group><field name="code"/><field name="node_id"/><field name="site_id" readonly="1"/></group>
+                <group><field name="height_u"/><field name="width_mm"/><field name="depth_mm"/><field name="active"/></group></group>
+            <group><field name="description" placeholder="Ubicación, identificación de puerta, notas de operación..."/></group>
+            <div class="oe_button_box" name="button_box"><button class="oe_stat_button" type="action" name="%(action_fiber_gis_cabinets)d"><field name="equipment_count" widget="statinfo" string="Equipos"/></button></div>
+            <notebook><page string="Equipos instalados"><field name="equipment_ids"><list editable="bottom">
+                <field name="position_u"/><field name="name"/><field name="kind" readonly="1"/><field name="height_u" readonly="1"/><field name="port_count" readonly="1"/><field name="notes"/>
+            </list></field></page></notebook>
+        </sheet></form></field>
+    </record>
+</odoo>

@@ -11,6 +11,7 @@
         sequence="25"
         web_icon="fiber_gis,static/description/icon.png"/>
     <menuitem id="menu_fiber_gis_map" name="Mapa" parent="menu_fiber_gis_root" action="action_fiber_gis_map" sequence="1"/>
+    <menuitem id="menu_fiber_gis_cabinets" name="Cabecera" parent="menu_fiber_gis_root" action="action_fiber_gis_cabinets" sequence="5" groups="fiber_gis.group_fiber_gis_manager"/>
     <menuitem id="menu_fiber_gis_inventory" name="Inventario" parent="menu_fiber_gis_root" sequence="10"/>
     <menuitem id="menu_fiber_gis_operations" name="Operaci&#xF3;n" parent="menu_fiber_gis_root" sequence="20"/>
     <menuitem

@@ -68,11 +68,13 @@ class FiberGisCableFiber(models.Model):
         "port_ids.node_id", "port_ids.name", "port_ids.status", "port_ids.employee_id.name", "port_ids.work_date",
     )
     def _compute_endpoint_connections(self):
+        """Calcula y actualiza «extremo conexiones» a partir de los datos actuales y sus relaciones."""
         for fiber in self:
             fiber.from_connection_summary = fiber._endpoint_connections(fiber.cable_id.from_node_id)
             fiber.to_connection_summary = fiber._endpoint_connections(fiber.cable_id.to_node_id)
 
     def _operation_detail(self, record, text):
+        """Describe el estado de uso de una fibra, incluida la bandeja y la conexión registrada."""
         if record.employee_id:
             text += f" - T\u00e9cnico: {record.employee_id.name}"
         if record.work_date:
@@ -92,7 +94,13 @@ class FiberGisCableFiber(models.Model):
         for line in lines.sorted("position"):
             if line.splitter_id:
                 continue
-            label = {"free": "Resto", "pass": "Paso", "fusion": "Fusi\u00f3n", "splitter": "Splitter"}.get(line.line_type, line.line_type)
+            label = {
+                "free": "Fibra en punta",
+                "pending_cancel": "Pendiente de anular",
+                "pass": "Sangría",
+                "fusion": "Fusi\u00f3n",
+                "splitter": "Splitter",
+            }.get(line.line_type, line.line_type)
             text = f"{label} - {line.tray_id.display_name}"
             other = line.output_fiber_id if line.input_fiber_id == self else line.input_fiber_id
             if other:
@@ -113,6 +121,7 @@ class FiberGisCableFiber(models.Model):
         return "\n".join([heading] + (details or ["Sin conexi\u00f3n registrada"]))
 
     def write(self, values):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         values = dict(values)
         review = not self.env.context.get("skip_fiber_work_log") and bool({"attenuation_db", "notes", "state", "employee_id"}.intersection(values))
         if review:
@@ -132,6 +141,7 @@ class FiberGisCableFiber(models.Model):
 
     @api.model
     def fiber_color(self, number):
+        """Devuelve el color normalizado de una fibra según el código de colores configurado."""
         palette = {
             1: "#0000ff",
             2: "#ffa500",
@@ -151,6 +161,7 @@ class FiberGisCableFiber(models.Model):
 
     @api.model
     def fiber_color_name(self, number):
+        """Devuelve el nombre normalizado del color de una fibra para informes y etiquetas."""
         palette = {
             1: "Azul",
             2: "Naranja",
@@ -188,6 +199,7 @@ class FiberGisCableFiber(models.Model):
     )
     @api.depends_context("fiber_gis_node_id", "fiber_gis_show_endpoint")
     def _compute_display_name(self):
+        """Calcula y actualiza «visualización nombre» a partir de los datos actuales y sus relaciones."""
         for fiber in self:
             parts = []
             if fiber.tube:
@@ -204,6 +216,7 @@ class FiberGisCableFiber(models.Model):
             fiber.display_name = "  ".join(parts)
 
     def _tray_usage_label(self):
+        """Resume la operación registrada para una fibra en su bandeja."""
         self.ensure_one()
         tray_lines = (self.tray_input_line_ids | self.tray_output_line_ids).sorted("id", reverse=True)
         node_id = self.env.context.get("fiber_gis_node_id")
@@ -212,8 +225,9 @@ class FiberGisCableFiber(models.Model):
         if tray_lines:
             line = tray_lines[:1]
             labels = {
-                "free": "Resto",
-                "pass": "Paso",
+                "free": "Fibra en punta",
+                "pending_cancel": "Pendiente de anular",
+                "pass": "Sangría",
                 "fusion": "Fusionada",
                 "splitter": "Splitter",
             }
@@ -230,6 +244,7 @@ class FiberGisCableFiber(models.Model):
 
     @api.model
     def _color_dot(self, color_name):
+        """Genera un indicador HTML circular con el color de fibra correspondiente."""
         dots = {
             "Azul": "\U0001f535",
             "Naranja": "\U0001f7e0",
@@ -248,6 +263,7 @@ class FiberGisCableFiber(models.Model):
 
     @api.depends("number", "tube", "cable_id.tube_count", "cable_id.fibers_per_tube")
     def _compute_color_names(self):
+        """Calcula y actualiza «color nombres» a partir de los datos actuales y sus relaciones."""
         for fiber in self:
             if fiber.cable_id.tube_count:
                 color_index = ((fiber.number - 1) % max(fiber.cable_id.fibers_per_tube, 1)) + 1
@@ -259,6 +275,7 @@ class FiberGisCableFiber(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         for values in vals_list:
             if not values.get("color") and values.get("number"):
                 cable = self.env["fiber.gis.cable"].browse(values.get("cable_id")).exists()
@@ -269,6 +286,7 @@ class FiberGisCableFiber(models.Model):
         return super().create(vals_list)
 
     def _recompute_tray_state(self):
+        """Recalcula el estado de cada fibra a partir de las fusiones, restos, pasos y splitters registrados."""
         tray_line_model = self.env["fiber.gis.tray.line"]
         for fiber in self:
             if fiber.state in ("reserved", "fault"):

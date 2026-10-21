@@ -13,6 +13,10 @@ access_fiber_gis_node_user,fiber.gis.node user,model_fiber_gis_node,fiber_gis.gr
 access_fiber_gis_node_manager,fiber.gis.node manager,model_fiber_gis_node,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_node_photo_user,fiber.gis.node.photo user,model_fiber_gis_node_photo,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_node_photo_manager,fiber.gis.node.photo manager,model_fiber_gis_node_photo,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_splice_document_user,fiber.gis.splice.document user,model_fiber_gis_splice_document,fiber_gis.group_fiber_gis_user,1,1,1,1
+access_fiber_gis_splice_document_manager,fiber.gis.splice.document manager,model_fiber_gis_splice_document,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_splice_import_wizard_user,fiber.gis.splice.import.wizard user,model_fiber_gis_splice_import_wizard,fiber_gis.group_fiber_gis_user,1,1,1,1
+access_fiber_gis_splice_import_wizard_manager,fiber.gis.splice.import.wizard manager,model_fiber_gis_splice_import_wizard,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_port_user,fiber.gis.port user,model_fiber_gis_port,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_port_manager,fiber.gis.port manager,model_fiber_gis_port,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_cable_user,fiber.gis.cable user,model_fiber_gis_cable,fiber_gis.group_fiber_gis_user,1,1,1,1
@@ -43,5 +47,10 @@ access_fiber_gis_trace_wizard_user,fiber.gis.trace.wizard user,model_fiber_gis_t
 access_fiber_gis_trace_wizard_manager,fiber.gis.trace.wizard manager,model_fiber_gis_trace_wizard,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_logical_link_user,fiber.gis.logical.link user,model_fiber_gis_logical_link,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_logical_link_manager,fiber.gis.logical.link manager,model_fiber_gis_logical_link,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_cabinet_manager,fiber.gis.cabinet manager,model_fiber_gis_cabinet,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_cabinet_equipment_manager,fiber.gis.cabinet.equipment manager,model_fiber_gis_cabinet_equipment,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_cabinet_port_manager,fiber.gis.cabinet.port manager,model_fiber_gis_cabinet_port,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_cabinet_interconnection_manager,fiber.gis.cabinet.interconnection manager,model_fiber_gis_cabinet_interconnection,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_cabinet_catalog_manager,fiber.gis.cabinet.catalog manager,model_fiber_gis_cabinet_catalog,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_settings_wizard_user,fiber.gis.settings.wizard user,model_fiber_gis_settings_wizard,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_settings_wizard_manager,fiber.gis.settings.wizard manager,model_fiber_gis_settings_wizard,fiber_gis.group_fiber_gis_manager,1,1,1,1

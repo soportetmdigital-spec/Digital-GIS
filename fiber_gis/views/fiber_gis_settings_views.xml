@@ -9,6 +9,10 @@
                     <group string="Version">
                         <field name="module_version" readonly="1"/>
                     </group>
+                    <group string="Mapa">
+                        <field name="map_detail_zoom"/>
+                        <div class="text-muted">A partir de este nivel se muestran los iconos y nombres completos de los elementos.</div>
+                    </group>
                     <group string="OpenStreetMap / Nominatim">
                         <field name="fiber_gis_nominatim_url"/>
                         <field name="fiber_gis_nominatim_email"/>
@@ -34,6 +38,13 @@
                             type="object"
                             string="Crear copia de seguridad"
                             class="btn-primary"/>
+                        <field name="backup_file" filename="backup_filename" widget="binary" options="{'preview_image': False, 'accepted_file_extensions': '.zip'}"/>
+                        <div class="text-warning">La restauraci&#xF3;n borra los datos actuales de Fiber GIS antes de importar la copia.</div>
+                        <button
+                            name="action_restore_backup"
+                            type="object"
+                            string="Restaurar copia"
+                            class="btn-secondary"/>
                     </group>
                 </sheet>
                 <footer>

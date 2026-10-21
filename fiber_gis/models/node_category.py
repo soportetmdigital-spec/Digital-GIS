@@ -34,6 +34,16 @@ class FiberGisNodeCategory(models.Model):
         default="other",
         help="Mantiene la compatibilidad tecnica del mapa, CTO, arquetas y filtros.",
     )
+    cable_entry_count = fields.Integer(
+        string="Bocas de cable predeterminadas",
+        default=4,
+        help="Cantidad de bocas disponibles en los elementos nuevos de este modelo. Para CTO internas suele ser 2.",
+    )
+    has_trays = fields.Boolean(
+        string="Tiene bandejas por defecto",
+        default=False,
+        help="Activa la pestaña y crea la bandeja inicial en los elementos nuevos de este modelo.",
+    )
     sequence = fields.Integer(string="Secuencia", default=10)
     active = fields.Boolean(string="Activo", default=True)
     map_icon = fields.Selection(
@@ -48,17 +58,19 @@ class FiberGisNodeCategory(models.Model):
 
     @api.model
     def _selection_map_icon(self):
+        """Devuelve las opciones de icono disponibles para los modelos de elemento."""
         return self.env["fiber.gis.node"]._fields["map_icon"].selection
 
     @api.model
     def _initial_style(self, kind):
+        """Obtiene el icono y el color iniciales para la categoría de elemento seleccionada."""
         node_model = self.env["fiber.gis.node"]
         type_record = self.env["fiber.gis.asset.type"].search([
             ("category", "=", "node"), ("code", "=", kind.upper()),
         ], limit=1)
         return {
-            "map_icon": node_model._default_icon_from_kind(kind),
-            "color": (
+            "map_icon": "square" if kind == "manhole" else node_model._default_icon_from_kind(kind),
+            "color": "#000000" if kind == "manhole" else (
                 node_model.CTO_NOT_ILLUMINATED_COLOR if kind == "cto"
                 else type_record.color or "#2f80ed"
             ),
@@ -66,6 +78,7 @@ class FiberGisNodeCategory(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         for values in vals_list:
             kind = values.get("node_kind") or self.env.context.get("default_node_kind") or "other"
             for name, value in self._initial_style(kind).items():

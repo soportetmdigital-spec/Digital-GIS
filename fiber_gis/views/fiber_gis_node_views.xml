@@ -9,6 +9,7 @@
                 <field name="name"/>
                 <field name="dowisp_id"/>
                 <field name="node_category_id"/>
+                <field name="cable_entry_count" optional="hide"/>
                 <field name="type_id"/>
                 <field name="deployment_plan_id" optional="hide"/>
                 <field name="partner_id" optional="hide"/>
@@ -58,6 +59,7 @@
                             <field name="color" widget="fiber_color"/>
                             <field name="has_trays" invisible="node_kind == 'ont'"/>
                             <field name="tray_count" invisible="not has_trays or node_kind == 'ont'"/>
+                            <field name="cable_entry_count" string="Bocas de cable"/>
                             <field name="site_id" invisible="node_kind == 'ont'"/>
                             <field name="parent_id" invisible="node_kind == 'ont'"/>
                         </group>
@@ -99,22 +101,24 @@
                         </page>
                         <page string="Cables" invisible="node_kind == 'ont'">
                             <group>
-                                <field name="incoming_cable_ids" readonly="1">
-                                    <list>
-                                        <field name="profile_id"/>
-                                        <field name="name"/>
-                                        <field name="from_node_id"/>
-                                        <field name="total_fiber_count"/>
-                                        <field name="state"/>
+                                <field name="incoming_cable_ids">
+                                    <list editable="bottom" create="0" delete="0">
+                                        <field name="profile_id" readonly="1"/>
+                                        <field name="name" readonly="1"/>
+                                        <field name="from_node_id" readonly="1"/>
+                                        <field name="to_boca" string="Boca"/>
+                                        <field name="total_fiber_count" readonly="1"/>
+                                        <field name="state" readonly="1"/>
                                     </list>
                                 </field>
-                                <field name="outgoing_cable_ids" readonly="1">
-                                    <list>
-                                        <field name="profile_id"/>
-                                        <field name="name"/>
-                                        <field name="to_node_id"/>
-                                        <field name="total_fiber_count"/>
-                                        <field name="state"/>
+                                <field name="outgoing_cable_ids">
+                                    <list editable="bottom" create="0" delete="0">
+                                        <field name="profile_id" readonly="1"/>
+                                        <field name="name" readonly="1"/>
+                                        <field name="to_node_id" readonly="1"/>
+                                        <field name="from_boca" string="Boca"/>
+                                        <field name="total_fiber_count" readonly="1"/>
+                                        <field name="state" readonly="1"/>
                                     </list>
                                 </field>
                             </group>
@@ -136,6 +140,35 @@
                         <page string="Bandejas" invisible="node_kind == 'ont'">
                             <button name="action_open_tray_wizard" type="object" string="Asistente Bandejas" class="btn-primary" invisible="not has_trays"/>
                             <field name="tray_visual_html" widget="fiber_diagram" nolabel="1" readonly="1"/>
+                        </page>
+                        <page name="splice_cards" string="Cartas de Empalme" invisible="not has_trays or node_kind == 'ont'">
+                            <group col="1">
+                                <group string="Cartas Excel">
+                                    <button name="action_open_splice_upload" type="object" string="Subir carta Excel" class="btn-primary"/>
+                                    <field name="splice_card_ids" nolabel="1" context="{'default_kind': 'excel'}">
+                                        <list editable="bottom">
+                                            <field name="name"/>
+                                            <field name="file_data" filename="file_name"/>
+                                            <field name="file_name" column_invisible="1"/>
+                                            <field name="technician_comment"/>
+                                            <field name="comment" optional="hide"/>
+                                            <field name="employee_id" options="{'no_create': True, 'no_open': True}" optional="show"/>
+                                            <field name="uploaded_at" readonly="1" optional="show"/>
+                                        </list>
+                                    </field>
+                                </group>
+                                <group string="Fotos">
+                                    <field name="splice_photo_ids" nolabel="1" context="{'default_kind': 'photo'}">
+                                        <list editable="bottom">
+                                            <field name="name" optional="hide"/>
+                                            <field name="image_1920" widget="image"/>
+                                            <field name="comment"/>
+                                            <field name="employee_id" options="{'no_create': True, 'no_open': True}" optional="show"/>
+                                            <field name="uploaded_at" readonly="1" optional="show"/>
+                                        </list>
+                                    </field>
+                                </group>
+                            </group>
                         </page>
                         <page string="Splitters" invisible="node_kind == 'ont'">
                             <field name="splitter_ids" readonly="1">
@@ -250,16 +283,15 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Registro de trabajos">
+                        <page string="Técnico">
                             <field name="work_log_ids">
                                 <list editable="bottom">
-                                    <field name="date"/>
-                                    <field name="node_name"/>
-                                    <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="date" string="Día y hora"/>
+                                    <field name="employee_id" required="1" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="employee_name" optional="hide"/>
                                     <field name="user_id" readonly="1" optional="hide"/>
-                                    <field name="work_type"/>
-                                    <field name="description"/>
+                                    <field name="work_type" string="Trabajo"/>
+                                    <field name="description" string="Trabajo realizado" required="1"/>
                                 </list>
                             </field>
                         </page>

@@ -94,6 +94,18 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Técnico">
+                            <field name="work_log_ids">
+                                <list editable="bottom">
+                                    <field name="date" string="Día y hora"/>
+                                    <field name="employee_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="employee_name" optional="hide"/>
+                                    <field name="user_id" readonly="1" optional="hide"/>
+                                    <field name="work_type" string="Trabajo"/>
+                                    <field name="description" string="Trabajo realizado" required="1"/>
+                                </list>
+                            </field>
+                        </page>
                         <page name="observaciones" string="Observaciones">
                             <field name="notes"/>
                         </page>
@@ -129,10 +141,10 @@
                     <group invisible="output_connected or operation != 'fusion'">
                         <field name="available_cable_ids" invisible="1"/>
                         <field name="available_fiber_ids" invisible="1"/>
-                        <field name="cable_id" domain="[('id', 'in', available_cable_ids)]" required="not output_connected and operation == 'fusion'"/>
+                        <field name="cable_id" string="Cable hacia / desde" domain="[('id', 'in', available_cable_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_boca': True}" required="not output_connected and operation == 'fusion'"/>
                         <field name="fiber_id" domain="[('id', 'in', available_fiber_ids)]" context="{'fiber_gis_node_id': node_id, 'fiber_gis_show_endpoint': True}" options="{'no_create': True}" required="not output_connected and operation == 'fusion'"/>
                     </group>
-                    <field name="fiber_info_html" nolabel="1" readonly="1" invisible="output_connected or operation != 'fusion'"/>
+                    <field name="fiber_info_html" nolabel="1" readonly="1" invisible="output_connected or operation != 'fusion' or not cable_id"/>
                     <group invisible="output_connected or operation != 'splitter'">
                         <field name="available_splitter_ids" invisible="1"/>
                         <field name="create_splitter"/>

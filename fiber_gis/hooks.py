@@ -26,7 +26,7 @@ NODE_CATEGORIES = [
     ("node_category_cto", {"name": "CTO", "code": "CTO", "node_kind": "cto", "sequence": 50}),
     ("node_category_box", {"name": "Caja terminal", "code": "BOX", "node_kind": "box", "sequence": 60}),
     ("node_category_closure", {"name": "Caja de registro", "code": "CLOSURE", "node_kind": "closure", "sequence": 70}),
-    ("node_category_manhole", {"name": "Arqueta", "code": "MANHOLE", "node_kind": "manhole", "sequence": 80}),
+    ("node_category_manhole", {"name": "Arqueta", "code": "MANHOLE", "node_kind": "manhole", "map_icon": "square", "color": "#000000", "sequence": 80}),
     ("node_category_pole", {"name": "Poste", "code": "POLE", "node_kind": "pole", "sequence": 90}),
     ("node_category_splitter", {"name": "Splitter", "code": "SPLITTER", "node_kind": "splitter", "sequence": 100}),
     ("node_category_rack", {"name": "Rack", "code": "RACK", "node_kind": "rack", "sequence": 110}),
@@ -36,12 +36,15 @@ NODE_CATEGORIES = [
 
 
 def post_init_hook(env):
+    """Inicializa los catálogos de referencia del módulo y prepara las categorias de elementos de red."""
     _upsert_by_code(env, "fiber.gis.asset.type", ASSET_TYPES)
     _upsert_by_code(env, "fiber.gis.node.category", NODE_CATEGORIES)
     env["fiber.gis.node.category"]._initialize_model_functions()
+    env["fiber.gis.cabinet.catalog"]._sync_defaults()
 
 
 def _upsert_by_code(env, model_name, rows):
+    """Crea o actualiza cada tipo de elemento por su código y mantiene su identificador externo de Odoo."""
     record_model = env[model_name].sudo().with_context(active_test=False)
     xmlid_model = env["ir.model.data"].sudo()
     module = "fiber_gis"

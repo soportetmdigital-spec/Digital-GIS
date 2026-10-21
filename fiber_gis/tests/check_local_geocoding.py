@@ -7,6 +7,7 @@ a test_geocoding ni a test_node_models en una base de pruebas de Odoo.
 import ast
 import importlib.util
 from pathlib import Path
+import xml.etree.ElementTree as ET
 import unittest
 
 
@@ -23,22 +24,29 @@ class UserError(Exception):
 # Extrae las consultas sin inicializar el ORM, manteniendo intacta su logica.
 tree = ast.parse((ROOT / "models/site.py").read_text(encoding="utf-8"))
 model = next(node for node in tree.body if isinstance(node, ast.ClassDef))
-method_names = {"_nominatim_geocode", "search_map_streets", "reverse_geocode_coordinates", "_nominatim_reverse_geocode"}
+method_names = {
+    "_nominatim_geocode", "search_map_streets", "_catastro_street_name_query",
+    "_catastro_elements", "_catastro_child", "_catastro_child_text",
+    "reverse_geocode_coordinates", "_nominatim_reverse_geocode",
+}
 methods = [node for node in model.body if isinstance(node, ast.FunctionDef) and node.name in method_names]
 for method in methods:
     method.decorator_list = []
 areas = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "_MAP_STREET_AREAS" for target in node.targets))
+street_types = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "_CATASTRO_STREET_TYPES" for target in node.targets))
 namespace = {
     "UserError": UserError, "municipality_key": local.municipality_key,
     "normalize_place": local.normalize_place, "short_address": local.short_address,
+    "ET": ET,
 }
-exec(compile(ast.fix_missing_locations(ast.Module(body=[areas, *methods], type_ignores=[])), "site-isolated", "exec"), namespace)
+exec(compile(ast.fix_missing_locations(ast.Module(body=[areas, street_types, *methods], type_ignores=[])), "site-isolated", "exec"), namespace)
 
 
 class Service:
     def __init__(self, response):
         self.response = response
         self.cache = {}
+        self.catastro_cache = {}
         self.requests = []
 
     def _nominatim_request(self, endpoint, params):
@@ -50,6 +58,25 @@ class Service:
 
     def _nominatim_cache_set(self, key, value):
         self.cache[key] = value
+
+    def _catastro_cache_get(self, key):
+        return self.catastro_cache.get(key)
+
+    def _catastro_cache_set(self, key, value):
+        self.catastro_cache[key] = value
+
+    def _catastro_municipality_codes(self, area):
+        return {"del": "18", "mun": "087" if area["name"] == "Granada capital" else "076"}
+
+    def _catastro_request(self, endpoint, params):
+        self.requests.append((endpoint, params))
+        municipality = params["Municipio"]
+        street_code = "001" if municipality == "GRANADA" else "002"
+        return ET.fromstring(
+            "<consulta><calle><dir>"
+            f"<cv>{street_code}</cv><tv>CL</tv><nv>Test</nv>"
+            "</dir></calle></consulta>"
+        )
 
 
 for name in method_names:

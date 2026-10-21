@@ -24,7 +24,7 @@ class FiberGisCable(models.Model):
     type_id = fields.Many2one(
         "fiber.gis.asset.type",
         domain=[("category", "=", "cable")],
-        string="Tipo GIS",
+        string="Tipología del GIS",
     )
     deployment_plan_id = fields.Many2one(
         "fiber.gis.deployment.plan",
@@ -36,6 +36,8 @@ class FiberGisCable(models.Model):
     color = fields.Char(string="Color", default="#0f766e", tracking=True)
     from_node_id = fields.Many2one("fiber.gis.node", required=True, string="Origen", tracking=True, ondelete="cascade")
     to_node_id = fields.Many2one("fiber.gis.node", required=True, string="Destino", tracking=True, ondelete="cascade")
+    from_boca = fields.Integer(string="Boca", default=0, tracking=True)
+    to_boca = fields.Integer(string="Boca", default=0, tracking=True)
     from_latitude = fields.Float(string="Latitud origen", related="from_node_id.latitude", store=True)
     from_longitude = fields.Float(string="Longitud origen", related="from_node_id.longitude", store=True)
     to_latitude = fields.Float(string="Latitud destino", related="to_node_id.latitude", store=True)
@@ -101,6 +103,9 @@ class FiberGisCable(models.Model):
     )
     segment_ids = fields.One2many("fiber.gis.cable.segment", "cable_id", string="Tramos")
     fiber_ids = fields.One2many("fiber.gis.cable.fiber", "cable_id", string="Fibras")
+    work_log_ids = fields.One2many(
+        "fiber.gis.node.work.log", "cable_id", string="Registro técnico",
+    )
     notes = fields.Text(string="Notas")
     active = fields.Boolean(string="Activo", default=True)
     _fiber_count_positive = models.Constraint(
@@ -112,9 +117,47 @@ class FiberGisCable(models.Model):
         "El numero de tubos no puede ser negativo.",
     )
 
+    @api.depends("name", "code", "from_node_id", "to_node_id", "from_boca", "to_boca")
+    @api.depends_context("fiber_gis_node_id", "fiber_gis_show_boca")
+    def _compute_display_name(self):
+        """Añade la dirección desde la caja activa y la boca local en los asistentes de bandejas."""
+        super()._compute_display_name()
+        if not self.env.context.get("fiber_gis_show_boca"):
+            return
+        node = self.env["fiber.gis.node"].browse(self.env.context.get("fiber_gis_node_id")).exists()
+        if not node:
+            return
+        for cable in self:
+            if cable.from_node_id == node:
+                boca = cable.from_boca
+            elif cable.to_node_id == node:
+                boca = cable.to_boca
+            else:
+                continue
+            if cable.to_node_id == node:
+                neighbor = cable.from_node_id
+                direction = "Cable que viene de"
+            else:
+                neighbor = cable.to_node_id
+                direction = "Cable que va a"
+            neighbor_name = (
+                (neighbor.name or "").strip()
+                or (neighbor.code or "").strip()
+                or f"caja sin nombre ({neighbor.id})"
+            )
+            code = (cable.code or "").strip()
+            name = (cable.name or "").strip()
+            if name.casefold() in {"cable", "cable de fibra óptica"}:
+                name = ""
+            identifier = " - ".join(item for item in (code, name) if item)
+            identifier = identifier or f"Cable {cable.id}"
+            boca_label = f"Boca {boca}" if boca else "Boca sin asignar"
+            cable.display_name = f"{direction} {neighbor_name} · {boca_label} · {identifier}"
+
     @api.model_create_multi
     def create(self, vals_list):
-        vals_list = [self._prepare_profile_values(dict(values), choose_profile=True) for values in vals_list]
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
+        vals_list = [self._prepare_profile_values(dict(values)) for values in vals_list]
         employee_id = self.env.context.get("fiber_gis_employee_id")
         if employee_id:
             for values in vals_list:
@@ -125,23 +168,31 @@ class FiberGisCable(models.Model):
         return cables
 
     @api.model
-    def _prepare_profile_values(self, values, choose_profile=False):
+    def _prepare_profile_values(self, values):
+        """Copia al cable las cantidades definidas por la tipología seleccionada."""
         profile = self.env["fiber.gis.cable.profile"]
         if values.get("profile_id"):
             profile = profile.browse(values["profile_id"]).exists()
             if not profile:
                 raise ValidationError("La tipologia seleccionada ya no existe.")
-        elif choose_profile and "profile_id" not in values:
+        elif "profile_id" not in values:
             profile = profile.search([
                 ("tube_count", "=", values.get("tube_count", 0)),
                 ("fiber_count", "=", values.get("fiber_count", 12)),
             ], limit=1)
         if profile:
-            values.update(profile_id=profile.id, tube_count=profile.tube_count, fiber_count=profile.fiber_count)
+            values.update(
+                profile_id=profile.id,
+                tube_count=profile.tube_count,
+                fiber_count=profile.fiber_count,
+            )
+            if profile.gis_type_id:
+                values.setdefault("type_id", profile.gis_type_id.id)
         return values
 
     @api.onchange("profile_id")
     def _onchange_profile_id(self):
+        """Actualiza las cantidades visibles en la ficha al cambiar la tipología."""
         for cable in self:
             if cable.profile_id:
                 cable.tube_count = cable.profile_id.tube_count
@@ -155,9 +206,12 @@ class FiberGisCable(models.Model):
         via_points=None,
         deployment_plan_id=False,
         route_kind="underground",
-        cable_type_id=False,
+        profile_id=False,
+        from_boca=False,
+        to_boca=False,
+        previous_cable_id=False,
     ):
-        """Create a cable from the interactive map drawing tool."""
+        """Crea un cable a partir de los extremos y el recorrido recibidos desde la herramienta de dibujo del mapa."""
         from_node = self.env["fiber.gis.node"].browse(int(from_node_id or 0)).exists()
         to_node = self.env["fiber.gis.node"].browse(int(to_node_id or 0)).exists()
         if not from_node or not to_node:
@@ -169,11 +223,26 @@ class FiberGisCable(models.Model):
         if not to_node.latitude or not to_node.longitude:
             raise ValidationError("El elemento de destino no tiene coordenadas.")
 
+        previous_cable = self.browse(int(previous_cable_id or 0)).exists()
+        if previous_cable:
+            previous_cable.check_access("read")
+            if previous_cable.to_node_id != from_node:
+                raise ValidationError("El nuevo tramo debe comenzar donde termina el tramo anterior.")
+
+        self._lock_endpoint_nodes(from_node | to_node)
+        self._validate_endpoint_boca(from_node, from_boca)
+        self._validate_endpoint_boca(to_node, to_boca)
+
         valid_route_kinds = {"facade", "aerial", "underground"}
         if route_kind not in valid_route_kinds:
             route_kind = "underground"
 
-        cable_type = self._map_cable_type(cable_type_id)
+        profile = self.env["fiber.gis.cable.profile"].browse(int(profile_id or 0)).exists()
+        if not profile:
+            profile = self.env["fiber.gis.cable.profile"].search([("active", "=", True)], order="name, id", limit=1)
+        if not profile:
+            raise ValidationError("No hay ninguna tipología de cable activa configurada.")
+        cable_type = self._map_cable_type()
 
         plan = self.env["fiber.gis.deployment.plan"]
         if deployment_plan_id:
@@ -207,7 +276,10 @@ class FiberGisCable(models.Model):
         values = {
             "from_node_id": from_node.id,
             "to_node_id": to_node.id,
+            "from_boca": int(from_boca),
+            "to_boca": int(to_boca),
             "type_id": cable_type.id,
+            "profile_id": profile.id,
             "route_kind": route_kind,
             "route_segment_kinds": json.dumps([route_kind] * (len(points) - 1)),
             "geometry_geojson": json.dumps(geometry),
@@ -216,17 +288,215 @@ class FiberGisCable(models.Model):
         if plan:
             values["deployment_plan_id"] = plan.id
         cable = self.create(values)
+        default_sangria = {}
+        if previous_cable:
+            default_sangria = self._create_map_default_sangria(previous_cable, cable, from_node)
         return {
             "id": cable.id,
             "name": cable.display_name,
             "length_m": cable.length_m,
             "deployment_plan_id": cable.deployment_plan_id.id or False,
             "type_id": cable.type_id.id,
+            "from_boca": cable.from_boca,
+            "to_boca": cable.to_boca,
+            "default_sangria_count": default_sangria.get("created", 0),
+            "default_sangria_tray": default_sangria.get("tray", ""),
+            "default_sangria_skipped": default_sangria.get("skipped", 0),
+            "default_sangria_note": default_sangria.get("note", ""),
         }
 
     @api.model
+    def finalize_map_cable_chain(self, cable_ids, profile_id):
+        """Aplica una tipología al final del trazado y registra las sangrías entre sus tramos."""
+        try:
+            ordered_ids = [int(cable_id) for cable_id in (cable_ids or [])]
+            profile_id = int(profile_id or 0)
+        except (TypeError, ValueError):
+            raise ValidationError("Selecciona una tipología de cable válida.")
+        if not ordered_ids or len(set(ordered_ids)) != len(ordered_ids):
+            raise ValidationError("No hay tramos válidos para finalizar el trazado.")
+
+        cables = self.browse(ordered_ids).exists()
+        if len(cables) != len(ordered_ids):
+            raise ValidationError("Alguno de los cables del trazado ya no existe.")
+        profile = self.env["fiber.gis.cable.profile"].browse(profile_id).exists()
+        if not profile or not profile.active:
+            raise ValidationError("Selecciona una tipología de cable activa.")
+        profile.check_access("read")
+        for cable in cables:
+            cable.check_access("write")
+            if cable.state != "planned":
+                raise ValidationError("Solo se puede finalizar un trazado con cables planificados.")
+
+        for incoming, outgoing in zip(cables, cables[1:]):
+            if incoming.to_node_id != outgoing.from_node_id:
+                raise ValidationError("Los tramos del trazado no forman una cadena continua.")
+
+        self._lock_endpoint_nodes(cables.mapped("from_node_id") | cables.mapped("to_node_id"))
+        fibers = cables.mapped("fiber_ids")
+        used_fibers = fibers.filtered(lambda fiber: (
+            fiber.state != "free"
+            or fiber.tray_input_line_ids
+            or fiber.tray_output_line_ids
+            or fiber.splitter_input_ids
+            or fiber.splitter_output_ids
+            or fiber.port_ids
+        ))
+        if used_fibers:
+            raise ValidationError("No se puede cambiar la tipología porque ya se han usado fibras de estos cables.")
+
+        # Los cables recién dibujados aún no tienen trabajos de fibra; se regeneran para
+        # que el número y los tubos correspondan a la tipología elegida al finalizar.
+        fibers.unlink()
+        cables.write({
+            "profile_id": profile.id,
+            "tube_count": profile.tube_count,
+            "fiber_count": profile.fiber_count,
+        })
+        cables.action_generate_fibers()
+
+        sangria_results = []
+        for incoming, outgoing in zip(cables, cables[1:]):
+            result = self._create_map_default_sangria(incoming, outgoing, incoming.to_node_id)
+            result["node"] = incoming.to_node_id.display_name
+            sangria_results.append(result)
+
+        return {
+            "cable_ids": cables.ids,
+            "profile": profile.display_name,
+            "sangria_results": sangria_results,
+        }
+
+    @api.model
+    def _create_map_default_sangria(self, previous_cable, cable, node):
+        """Registra como sangría el paso entre dos tramos consecutivos en la primera bandeja."""
+        previous_cable.action_generate_fibers()
+        cable.action_generate_fibers()
+        node._ensure_trays_from_count()
+        tray = node.tray_ids.sorted(lambda item: (item.sequence, item.id))[:1]
+        if not tray:
+            return {"note": "La caja intermedia no tiene bandejas; no se registró la sangría."}
+
+        if (
+            previous_cable.total_fiber_count != cable.total_fiber_count
+            or previous_cable.tube_count != cable.tube_count
+            or previous_cable.fiber_count != cable.fiber_count
+        ):
+            return {
+                "tray": tray.display_name,
+                "note": "Los tramos tienen distinta distribución de fibras o tubos; revisa la sangría desde Gestión de bandejas.",
+            }
+
+        input_by_number = {fiber.number: fiber for fiber in previous_cable.fiber_ids}
+        output_by_number = {fiber.number: fiber for fiber in cable.fiber_ids}
+        pairs = [
+            (input_by_number[number], output_by_number[number])
+            for number in sorted(input_by_number.keys() & output_by_number.keys())
+        ]
+        if not pairs:
+            return {"tray": tray.display_name, "note": "Los cables no tienen fibras numeradas compatibles."}
+
+        all_fibers = self.env["fiber.gis.cable.fiber"].browse(
+            [fiber.id for pair in pairs for fiber in pair]
+        )
+        occupied_lines = self.env["fiber.gis.tray.line"].search([
+            ("node_id", "=", node.id),
+            "|",
+            ("input_fiber_id", "in", all_fibers.ids),
+            ("output_fiber_id", "in", all_fibers.ids),
+        ])
+        occupied_ids = set(occupied_lines.mapped("input_fiber_id").ids + occupied_lines.mapped("output_fiber_id").ids)
+        occupied_ids.update(self.env["fiber.gis.splitter"].search([
+            ("node_id", "=", node.id), ("input_fiber_id", "in", all_fibers.ids),
+        ]).mapped("input_fiber_id").ids)
+        occupied_ids.update(self.env["fiber.gis.splitter.output"].search([
+            ("splitter_id.node_id", "=", node.id), ("output_fiber_id", "in", all_fibers.ids),
+        ]).mapped("output_fiber_id").ids)
+
+        free_pairs = [
+            pair for pair in pairs
+            if pair[0].id not in occupied_ids and pair[1].id not in occupied_ids
+        ]
+        skipped = len(pairs) - len(free_pairs)
+        if free_pairs:
+            next_position = max(tray.line_ids.mapped("position") or [0]) + 1
+            self.env["fiber.gis.tray.line"].create([
+                {
+                    "tray_id": tray.id,
+                    "position": next_position + index,
+                    "line_type": "pass",
+                    "input_fiber_id": input_fiber.id,
+                    "output_fiber_id": output_fiber.id,
+                    "notes": "Sangría creada automáticamente al continuar el trazado del mapa.",
+                }
+                for index, (input_fiber, output_fiber) in enumerate(free_pairs)
+            ])
+        return {"created": len(free_pairs), "tray": tray.display_name, "skipped": skipped}
+
+    @api.model
+    def _lock_endpoint_nodes(self, nodes):
+        """Evita asignar simultáneamente una misma boca en un elemento desde dos trazados."""
+        for node_id in sorted(nodes.ids):
+            self.env.cr.execute("SELECT pg_advisory_xact_lock(%s, %s)", (934036, node_id))
+
+    @api.model
+    def _validate_endpoint_boca(self, node, boca, exclude_cable=None):
+        """Comprueba que la boca exista en el elemento y que no esté ocupada por otro cable."""
+        try:
+            boca = int(boca or 0)
+        except (TypeError, ValueError):
+            boca = 0
+        if boca < 1 or boca > node.cable_entry_count:
+            raise ValidationError(
+                f"Selecciona una boca entre 1 y {node.cable_entry_count} para {node.display_name}."
+            )
+        cables = self.sudo().with_context(active_test=False).search([
+            ("id", "!=", exclude_cable.id if exclude_cable else 0),
+            ("active", "=", True),
+            ("state", "!=", "retired"),
+            "|", ("from_node_id", "=", node.id), ("to_node_id", "=", node.id),
+        ])
+        occupied = any(
+            (cable.from_node_id == node and cable.from_boca == boca)
+            or (cable.to_node_id == node and cable.to_boca == boca)
+            for cable in cables
+        )
+        if occupied:
+            raise ValidationError(f"La boca {boca} de {node.display_name} ya está ocupada por otro cable.")
+
+    @api.model
+    def get_available_bocas(self, node_id):
+        """Devuelve las bocas libres del elemento, incluyendo cables fuera del plan visible."""
+        node = self.env["fiber.gis.node"].browse(int(node_id or 0)).exists()
+        if not node:
+            raise ValidationError("El elemento de red ya no existe.")
+        node.check_access("read")
+        cables = self.sudo().with_context(active_test=False).search([
+            ("active", "=", True),
+            ("state", "!=", "retired"),
+            "|", ("from_node_id", "=", node.id), ("to_node_id", "=", node.id),
+        ])
+        occupied = set()
+        for cable in cables:
+            if cable.from_node_id == node and cable.from_boca:
+                occupied.add(cable.from_boca)
+            if cable.to_node_id == node and cable.to_boca:
+                occupied.add(cable.to_boca)
+        return [boca for boca in range(1, max(node.cable_entry_count, 0) + 1) if boca not in occupied]
+
+    @api.constrains("from_node_id", "to_node_id", "from_boca", "to_boca")
+    def _check_endpoint_bocas(self):
+        """Impide guardar dos cables en la misma boca de salida o de entrada."""
+        for cable in self:
+            cable._lock_endpoint_nodes(cable.from_node_id | cable.to_node_id)
+            if cable.from_boca:
+                cable._validate_endpoint_boca(cable.from_node_id, cable.from_boca, exclude_cable=cable)
+            if cable.to_boca:
+                cable._validate_endpoint_boca(cable.to_node_id, cable.to_boca, exclude_cable=cable)
+
+    @api.model
     def _map_cable_type(self, cable_type_id=False):
-        """Return a valid cable type for an interactive map creation."""
+        """Resuelve la tipología GIS válida para un cable creado desde el mapa."""
         type_model = self.env["fiber.gis.asset.type"]
         cable_type = type_model
         if cable_type_id:
@@ -249,13 +519,14 @@ class FiberGisCable(models.Model):
         return cable_type
 
     def write(self, vals):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         vals = self._prepare_profile_values(dict(vals))
         if (
             "route_kind" in vals
             and "route_segment_kinds" not in vals
             and not self.env.context.get("skip_segment_sync")
         ):
-            # Changing the main route kind in the form applies it to every segment.
+            # El tipo de trazado principal seleccionado en la ficha se aplica a todos los tramos.
             vals["route_segment_kinds"] = False
         result = super().write(vals)
         sync_fields = {
@@ -267,22 +538,26 @@ class FiberGisCable(models.Model):
         }
         if not self.env.context.get("skip_segment_sync") and sync_fields.intersection(vals):
             self._sync_route_segments()
-        if {"fiber_count", "tube_count"}.intersection(vals):
+        # La relación también sincroniza cuando cambia la tipología sin variar las cantidades.
+        if {"profile_id", "fiber_count", "tube_count"}.intersection(vals):
             self._sync_fiber_topology()
         return result
 
     @api.depends("fiber_count", "tube_count")
     def _compute_fibers_per_tube(self):
+        """Calcula y actualiza «fibras por tubo» a partir de los datos actuales y sus relaciones."""
         for cable in self:
             cable.fibers_per_tube = cable.fiber_count if cable.tube_count else 0
 
     @api.depends("fiber_count", "tube_count")
     def _compute_total_fiber_count(self):
+        """Calcula el total de fibras: fibras totales si no hay tubos, o tubos multiplicados por fibras por tubo."""
         for cable in self:
             cable.total_fiber_count = cable.fiber_count * cable.tube_count if cable.tube_count else cable.fiber_count
 
     @api.depends("fiber_count", "tube_count", "fibers_per_tube", "total_fiber_count")
     def _compute_topology(self):
+        """Calcula y actualiza «topología» a partir de los datos actuales y sus relaciones."""
         for cable in self:
             if cable.tube_count:
                 cable.topology = f"{cable.total_fiber_count} fibras / {cable.tube_count} tubos x {cable.fibers_per_tube} fibras por tubo"
@@ -298,6 +573,7 @@ class FiberGisCable(models.Model):
         "geometry_geojson",
     )
     def _compute_length_m(self):
+        """Calcula la longitud estimada a partir de los puntos del recorrido del cable."""
         for cable in self:
             if cable.measured_length_m:
                 cable.length_m = cable.measured_length_m
@@ -311,6 +587,7 @@ class FiberGisCable(models.Model):
             cable.length_m = cable._polyline_length(points)
 
     def _get_geometry_points(self):
+        """Obtiene «geometría puntos» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         if not self.geometry_geojson:
             return []
@@ -327,6 +604,7 @@ class FiberGisCable(models.Model):
         return points
 
     def _get_route_points(self):
+        """Obtiene «recorrido puntos» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         points = self._get_geometry_points()
         if len(points) >= 2:
@@ -337,6 +615,7 @@ class FiberGisCable(models.Model):
         ]
 
     def _get_route_segment_kinds(self, segment_count):
+        """Obtiene «recorrido tramo tipos» aplicando las reglas y relaciones propias del modelo."""
         self.ensure_one()
         kinds = []
         if self.route_segment_kinds:
@@ -349,6 +628,7 @@ class FiberGisCable(models.Model):
         return [kinds[index] if index < len(kinds) and kinds[index] else fallback for index in range(segment_count)]
 
     def _route_point_label(self, point_index, point_count):
+        """Devuelve una etiqueta legible para el punto correspondiente del recorrido del cable."""
         self.ensure_one()
         if point_index == 0:
             return self.from_node_id.display_name or "Origen"
@@ -357,12 +637,18 @@ class FiberGisCable(models.Model):
         return f"Punto {point_index}"
 
     def _sync_route_segments(self):
+        """Sincroniza la geometría de ruta con los registros de tramo del cable."""
         segment_model = self.env["fiber.gis.cable.segment"]
         for cable in self:
             points = [point for point in cable._get_route_points() if all(point)]
             segment_count = max(len(points) - 1, 0)
             kinds = cable._get_route_segment_kinds(segment_count)
             existing_by_sequence = {segment.sequence: segment for segment in cable.segment_ids}
+            # Get existing sequences to know what to keep/remove
+            existing_sequences = set(existing_by_sequence.keys())
+            new_sequences = set(range(1, segment_count + 1)) if segment_count > 0 else set()
+            
+            # Update or create segments that should exist
             for index in range(segment_count):
                 sequence = index + 1
                 start = points[index]
@@ -380,14 +666,20 @@ class FiberGisCable(models.Model):
                 else:
                     values["cable_id"] = cable.id
                     segment_model.with_context(skip_cable_segment_json=True).create(values)
-            obsolete_segments = cable.segment_ids.filtered(lambda segment: segment.sequence > segment_count)
-            obsolete_segments.with_context(skip_cable_segment_json=True).unlink()
+            
+            # Remove obsolete segments (sequences that exist but shouldn't)
+            obsolete_sequences = existing_sequences - new_sequences
+            if obsolete_sequences:
+                existing_by_sequence.filtered(lambda s: s.sequence in obsolete_sequences).with_context(skip_cable_segment_json=True).unlink()
+            
+            # Update route_segment_kinds canonical value
             canonical_kinds = json.dumps(kinds) if kinds else False
             if cable.route_segment_kinds != canonical_kinds:
                 cable.with_context(skip_segment_sync=True).write({"route_segment_kinds": canonical_kinds})
 
     @api.model
     def _polyline_length(self, points):
+        """Suma las distancias de los segmentos consecutivos de una geometría para obtener su longitud."""
         total = 0.0
         for start, end in zip(points, points[1:]):
             total += self._haversine_m(start[0], start[1], end[0], end[1])
@@ -395,6 +687,7 @@ class FiberGisCable(models.Model):
 
     @api.model
     def _haversine_m(self, lat1, lon1, lat2, lon2):
+        """Calcula en metros la distancia geográfica entre dos coordenadas mediante la fórmula de Haversine."""
         if not all([lat1, lon1, lat2, lon2]):
             return 0.0
         radius = 6371000
@@ -406,6 +699,7 @@ class FiberGisCable(models.Model):
         return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     def action_generate_fibers(self):
+        """Ejecuta la acción de usuario «generación fibras» y devuelve el resultado correspondiente a Odoo."""
         self._check_fiber_topology()
         for cable in self:
             existing_numbers = set(cable.fiber_ids.mapped("number"))
@@ -437,22 +731,26 @@ class FiberGisCable(models.Model):
         return True
 
     def _sync_fiber_topology(self):
+        """Sincroniza «fibra topología» entre los registros relacionados y evita duplicar los datos existentes."""
         for cable in self:
             cable.action_generate_fibers()
 
     def _tube_for_fiber(self, number):
+        """Calcula el tubo al que pertenece una fibra según la tipología y su número."""
         self.ensure_one()
         if not self.tube_count:
             return 0
         return int((number - 1) / max(self.fibers_per_tube, 1)) + 1
 
     def _fiber_color_index(self, number):
+        """Calcula el índice de color normalizado de una fibra."""
         self.ensure_one()
         if not self.tube_count:
             return number
         return ((number - 1) % max(self.fibers_per_tube, 1)) + 1
 
     def _check_fiber_topology(self):
+        """Valida «fibra topología» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         for cable in self:
             total = cable.fiber_count * (cable.tube_count or 1)
             if cable.fiber_ids.filtered(lambda fiber: fiber.number > total):
@@ -465,10 +763,12 @@ class FiberGisCable(models.Model):
         return True
 
     def action_sync_route_segments(self):
+        """Ejecuta la acción de usuario «sincronización recorrido tramos» y devuelve el resultado correspondiente a Odoo."""
         self._sync_route_segments()
         return True
 
     def action_open_tray_wizard(self):
+        """Abre el asistente de operaciones de bandeja para el elemento seleccionado."""
         self.ensure_one()
         self.action_generate_fibers()
         return {
@@ -486,9 +786,11 @@ class FiberGisCable(models.Model):
         }
 
     def action_set_planned(self):
+        """Cambia el estado del registro a planificado."""
         self.write({"state": "planned"})
 
     def action_open_map(self):
+        """Abre el registro seleccionado en el mapa de Fiber GIS."""
         self.ensure_one()
         params = {
             "target_cable_id": self.id,
@@ -503,19 +805,24 @@ class FiberGisCable(models.Model):
         }
 
     def action_set_installed(self):
+        """Cambia el estado del registro a instalado."""
         self.write({"state": "installed"})
 
     def action_set_active(self):
+        """Activa el registro y actualiza su estado."""
         self.write({"state": "active"})
 
     def action_set_fault(self):
+        """Marca el registro con una incidencia."""
         self.write({"state": "fault"})
 
     def action_set_retired(self):
+        """Retira el registro de la red activa."""
         self.write({"state": "retired"})
 
     @api.constrains("geometry_geojson")
     def _check_geometry_geojson(self):
+        """Valida «geometría geojson» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         for cable in self:
             if not cable.geometry_geojson:
                 continue
@@ -528,10 +835,12 @@ class FiberGisCable(models.Model):
 
     @api.constrains("fiber_count", "tube_count", "profile_id")
     def _check_counts(self):
+        """Valida «cantidades» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         self._check_fiber_topology()
 
     @api.constrains("route_segment_kinds")
     def _check_route_segment_kinds(self):
+        """Valida «recorrido tramo tipos» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         valid_kinds = {"facade", "aerial", "underground"}
         for cable in self:
             if not cable.route_segment_kinds:
@@ -572,6 +881,7 @@ class FiberGisCableSegment(models.Model):
     )
 
     def write(self, vals):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         result = super().write(vals)
         if "route_kind" in vals and not self.env.context.get("skip_cable_segment_json"):
             self.mapped("cable_id")._update_route_segment_kinds_from_segments()
@@ -580,12 +890,14 @@ class FiberGisCableSegment(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         segments = super().create(vals_list)
         if not self.env.context.get("skip_cable_segment_json"):
             segments.mapped("cable_id")._update_route_segment_kinds_from_segments()
         return segments
 
     def unlink(self):
+        """Elimina los registros aplicando las comprobaciones y limpiezas necesarias en sus relaciones."""
         cables = self.mapped("cable_id")
         result = super().unlink()
         if not self.env.context.get("skip_cable_segment_json"):
@@ -594,6 +906,7 @@ class FiberGisCableSegment(models.Model):
 
 
 def _update_route_segment_kinds_from_segments(self):
+    """Actualiza el tipo de instalación de la ruta a partir de los tramos guardados."""
     for cable in self:
         kinds = [segment.route_kind for segment in cable.segment_ids.sorted("sequence")]
         cable.with_context(skip_segment_sync=True).write({

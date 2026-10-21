@@ -71,6 +71,18 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Técnico">
+                            <field name="work_log_ids">
+                                <list editable="bottom">
+                                    <field name="date" string="Día y hora"/>
+                                    <field name="employee_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="employee_name" optional="hide"/>
+                                    <field name="user_id" readonly="1" optional="hide"/>
+                                    <field name="work_type" string="Trabajo"/>
+                                    <field name="description" string="Trabajo realizado" required="1"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Notas">
                             <field name="notes"/>
                         </page>

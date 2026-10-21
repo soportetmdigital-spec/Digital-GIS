@@ -5,38 +5,27 @@ import html
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from .work_log import work_employee_id
+from .splitter_options import (
+    SPLITTER_DEFAULT_LOSS_DB,
+    SPLITTER_RATIO_SELECTION,
+    splitter_default_loss_db,
+    splitter_output_count,
+)
 
 
-SPLITTER_RATIO_SELECTION = [
-    ("1:2", "1:2"),
-    ("1:4", "1:4"),
-    ("1:8", "1:8"),
-    ("1:16", "1:16"),
-    ("1:32", "1:32"),
-    ("1:64", "1:64"),
-]
-
-SPLITTER_DEFAULT_LOSS_DB = {
-    "1:2": 3.7,
-    "1:4": 7.1,
-    "1:8": 10.4,
-    "1:16": 13.7,
-    "1:32": 17.0,
-    "1:64": 20.5,
-}
-
-
-def splitter_output_count(ratio):
-    """Return the output port count encoded in a 1:N ratio."""
-    try:
-        return int((ratio or "1:0").split(":", 1)[1])
-    except (IndexError, TypeError, ValueError):
-        return 0
-
-
-def splitter_default_loss_db(ratio):
-    """Devuelve la perdida de insercion de referencia para una relacion 1:N."""
-    return SPLITTER_DEFAULT_LOSS_DB.get(ratio, 0.0)
+def splitter_upstream_chain(splitter):
+    """Devuelve la cadena de splitters aguas arriba e indica si contiene un ciclo."""
+    chain = []
+    visited = set()
+    current = splitter
+    while current:
+        if current.id in visited:
+            return chain, True
+        visited.add(current.id)
+        chain.append(current)
+        source = current.input_output_id
+        current = source.splitter_id if source else False
+    return chain, False
 
 
 class FiberGisSplitter(models.Model):
@@ -166,16 +155,21 @@ class FiberGisSplitter(models.Model):
     employee_id = fields.Many2one("hr.employee.public", string="T\u00e9cnico")
     work_date = fields.Datetime(string="Fecha del trabajo")
     notes = fields.Text(string="Observaciones")
+    work_log_ids = fields.One2many(
+        "fiber.gis.node.work.log", "splitter_id", string="Registro técnico",
+    )
     active = fields.Boolean(string="Activo", default=True)
 
     @api.depends("tray_id", "node_id.incoming_cable_ids.fiber_ids", "node_id.outgoing_cable_ids.fiber_ids")
     def _compute_available_input_fiber_ids(self):
+        """Calcula y actualiza «disponible entrada fibra identificadores» a partir de los datos actuales y sus relaciones."""
         empty = self.env["fiber.gis.cable.fiber"]
         for splitter in self:
             splitter.available_input_fiber_ids = splitter._available_fibers() if splitter.node_id else empty
 
     @api.depends("ratio", "output_ids.is_connected")
     def _compute_output_counts(self):
+        """Calcula y actualiza «salida cantidades» a partir de los datos actuales y sus relaciones."""
         for splitter in self:
             splitter.output_count = splitter_output_count(splitter.ratio)
             splitter.connected_output_count = len(splitter.output_ids.filtered("is_connected"))
@@ -207,25 +201,30 @@ class FiberGisSplitter(models.Model):
         "output_ids.downstream_splitter_ids.tray_id",
     )
     def _compute_diagram_html(self):
+        """Calcula y actualiza «diagrama HTML» a partir de los datos actuales y sus relaciones."""
         for splitter in self:
             splitter.diagram_html = splitter._build_diagram_html()
 
     @api.onchange("tray_id")
     def _onchange_tray_id(self):
+        """Recalcula los campos del formulario al cambiar «bandeja identificador», antes de guardar el registro."""
         for splitter in self:
             splitter.node_id = splitter.tray_id.node_id
 
     @api.onchange("ratio")
     def _onchange_ratio(self):
+        """Recalcula los campos del formulario al cambiar «relación», antes de guardar el registro."""
         for splitter in self:
             splitter.nominal_loss_db = splitter_default_loss_db(splitter.ratio)
 
     @api.model
     def get_default_nominal_loss_db(self, ratio):
+        """Devuelve la pérdida nominal orientativa según la relación del splitter."""
         return splitter_default_loss_db(ratio)
 
     @api.constrains("tray_id", "node_id", "input_fiber_id", "input_output_id")
     def _check_input_fiber(self):
+        """Valida «entrada fibra» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         tray_line_model = self.env["fiber.gis.tray.line"]
         output_model = self.env["fiber.gis.splitter.output"]
         for splitter in self:
@@ -244,13 +243,9 @@ class FiberGisSplitter(models.Model):
                     raise ValidationError("La salida de origen ya esta ocupada o no esta disponible.")
                 if source.splitter_id.state in ("retired", "fault") or not source.splitter_id.active:
                     raise ValidationError("El splitter de origen no esta disponible.")
-                visited = set()
-                current = splitter
-                while current:
-                    if current.id in visited:
-                        raise ValidationError("No se puede crear un circuito cerrado entre splitters.")
-                    visited.add(current.id)
-                    current = current.input_output_id.splitter_id
+                _chain, has_cycle = splitter_upstream_chain(splitter)
+                if has_cycle:
+                    raise ValidationError("No se puede crear un circuito cerrado entre splitters.")
             if not splitter.input_fiber_id or not splitter.node_id:
                 continue
             if splitter.input_fiber_id.cable_id not in splitter._connected_cables():
@@ -285,6 +280,7 @@ class FiberGisSplitter(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         for values in vals_list:
             values.setdefault("employee_id", work_employee_id(self.env))
             values.setdefault("work_date", fields.Datetime.now())
@@ -308,6 +304,7 @@ class FiberGisSplitter(models.Model):
         return splitters
 
     def write(self, vals):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         vals = dict(vals)
         work_fields = {"tray_id", "input_fiber_id", "input_output_id", "ratio", "nominal_loss_db", "notes", "employee_id"}
         if work_fields.intersection(vals):
@@ -350,6 +347,7 @@ class FiberGisSplitter(models.Model):
 
     @api.model
     def action_fill_missing_nominal_losses(self):
+        """Ejecuta la acción de usuario «completar pendiente nominal pérdidas» y devuelve el resultado correspondiente a Odoo."""
         for ratio, loss_db in SPLITTER_DEFAULT_LOSS_DB.items():
             self.search([
                 ("ratio", "=", ratio),
@@ -358,6 +356,7 @@ class FiberGisSplitter(models.Model):
         return True
 
     def unlink(self):
+        """Elimina los registros aplicando las comprobaciones y limpiezas necesarias en sus relaciones."""
         fibers = self.mapped("input_fiber_id") | self.mapped("output_ids.output_fiber_id")
         nodes = self.mapped("node_id")
         upstream = self.mapped("input_output_id")
@@ -370,12 +369,14 @@ class FiberGisSplitter(models.Model):
         return result
 
     def action_sync_outputs(self):
+        """Ejecuta la acción de usuario «sincronización salidas» y devuelve el resultado correspondiente a Odoo."""
         self._sync_output_ports()
         self._sync_tray_lines()
         self.mapped("output_ids")._sync_drop_cable_colors()
         return True
 
     def action_connect_customer_drop(self):
+        """Ejecuta la acción de usuario «conexión cliente acometida» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
@@ -390,6 +391,7 @@ class FiberGisSplitter(models.Model):
         }
 
     def action_open_form(self):
+        """Abre el formulario del registro relacionado."""
         self.ensure_one()
         self.check_access("read")
         view_id = self.env.ref("fiber_gis.view_fiber_gis_splitter_form").id
@@ -402,21 +404,21 @@ class FiberGisSplitter(models.Model):
     def _upstream_fiber(self):
         """Recorre la cascada local sin inventar cables entre splitters."""
         self.ensure_one()
-        current, visited, path = self, set(), []
-        while current:
-            if current.id in visited:
-                raise UserError("Se ha detectado un circuito cerrado entre splitters.")
-            visited.add(current.id)
+        chain, has_cycle = splitter_upstream_chain(self)
+        if has_cycle:
+            raise UserError("Se ha detectado un circuito cerrado entre splitters.")
+        path = []
+        for current in chain:
             path.append(current.display_name)
             if current.input_fiber_id:
                 return current.input_fiber_id, path
             source = current.input_output_id
             if source:
                 path.append(f"salida {source.sequence}")
-            current = source.splitter_id
         return self.env["fiber.gis.cable.fiber"], path
 
     def _connected_cables(self):
+        """Obtiene los cables que llegan o salen de las conexiones del splitter."""
         self.ensure_one()
         return self.env["fiber.gis.cable"].search([
             "|",
@@ -425,12 +427,14 @@ class FiberGisSplitter(models.Model):
         ])
 
     def _customer_drop_cables(self):
+        """Obtiene los cables de acometida asociados a las salidas conectadas a clientes."""
         self.ensure_one()
         return self._connected_cables().filtered(
             lambda cable: cable.type_id.code == "CABLE_DROP"
         )
 
     def _connect_output_fiber(self, output, fiber, notes=None):
+        """Conecta la fibra elegida con la salida del splitter y actualiza sus registros asociados."""
         self.ensure_one()
         output = output.exists()
         fiber = fiber.exists()
@@ -449,6 +453,7 @@ class FiberGisSplitter(models.Model):
         return output
 
     def _connect_customer_drop(self, output, drop_fiber, notes=None):
+        """Asocia una salida del splitter a la acometida y al cliente seleccionados."""
         self.ensure_one()
         drop_fiber = drop_fiber.exists()
         if not drop_fiber or drop_fiber.cable_id not in self._customer_drop_cables():
@@ -462,6 +467,7 @@ class FiberGisSplitter(models.Model):
         return output
 
     def _available_fibers(self):
+        """Devuelve las fibras disponibles que pueden conectarse al splitter."""
         self.ensure_one()
         cables = self._connected_cables()
         for cable in cables.filtered(lambda item: not item.fiber_ids):
@@ -469,6 +475,7 @@ class FiberGisSplitter(models.Model):
         return cables.mapped("fiber_ids")
 
     def _sync_output_ports(self):
+        """Sincroniza «salida puertos» entre los registros relacionados y evita duplicar los datos existentes."""
         output_model = self.env["fiber.gis.splitter.output"]
         for splitter in self:
             desired_count = splitter_output_count(splitter.ratio)
@@ -489,6 +496,7 @@ class FiberGisSplitter(models.Model):
             excess.unlink()
 
     def _sync_tray_lines(self):
+        """Sincroniza «bandeja líneas» entre los registros relacionados y evita duplicar los datos existentes."""
         line_model = self.env["fiber.gis.tray.line"]
         for splitter in self:
             values = {
@@ -517,6 +525,7 @@ class FiberGisSplitter(models.Model):
                 line_model.with_context(skip_splitter_sync=True).create(values)
 
     def _build_diagram_html(self):
+        """Construye «diagrama HTML» con los datos del modelo para mostrarlo o imprimirlo."""
         self.ensure_one()
         input_html = self._fiber_html(
             self.input_fiber_id,
@@ -565,6 +574,7 @@ class FiberGisSplitter(models.Model):
         )
 
     def _fiber_html(self, fiber, endpoint_label):
+        """Construye el fragmento HTML que representa una fibra y el extremo al que llega."""
         if not fiber:
             return "<span class='o_fiber_splitter_free'>Sin fibra</span>"
         parts = []
@@ -592,6 +602,7 @@ class FiberGisSplitter(models.Model):
         )
 
     def _fiber_remote_label(self, fiber):
+        """Forma el texto identificativo del cable, fibra y elemento remoto conectado."""
         self.ensure_one()
         if not fiber or not self.node_id:
             return ""
@@ -675,6 +686,7 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.depends("output_fiber_id", "downstream_splitter_ids")
     def _compute_is_connected(self):
+        """Calcula y actualiza «es conectado» a partir de los datos actuales y sus relaciones."""
         for output in self:
             output.is_connected = bool(output.output_fiber_id or output.downstream_splitter_ids)
 
@@ -693,6 +705,7 @@ class FiberGisSplitterOutput(models.Model):
         self.invalidate_recordset(["output_fiber_id", "state", "downstream_splitter_ids", "is_connected"])
 
     def _sync_connection_state(self):
+        """Sincroniza «conexión estado» entre los registros relacionados y evita duplicar los datos existentes."""
         for output in self:
             output.invalidate_recordset(["downstream_splitter_ids", "is_connected"])
             if output.is_connected and output.state == "free":
@@ -701,6 +714,7 @@ class FiberGisSplitterOutput(models.Model):
                 output.write({"state": "free"})
 
     def action_manage_connection(self):
+        """Ejecuta la acción de usuario «gestión conexión» y devuelve el resultado correspondiente a Odoo."""
         self.ensure_one()
         self.check_access("read")
         view_id = self.env.ref("fiber_gis.view_fiber_gis_splitter_drop_wizard_form").id
@@ -713,6 +727,7 @@ class FiberGisSplitterOutput(models.Model):
         }
 
     def _disconnect(self):
+        """Elimina la conexión de la salida y sincroniza los registros de bandeja y puerto relacionados."""
         self._lock_connection()
         for output in self:
             output.downstream_splitter_ids.write({"input_output_id": False})
@@ -721,11 +736,13 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.depends("splitter_id", "sequence")
     def _compute_name(self):
+        """Calcula y actualiza «nombre» a partir de los datos actuales y sus relaciones."""
         for output in self:
             output.name = f"{output.splitter_id.display_name or 'Splitter'} / salida {output.sequence}"
 
     @api.depends("sequence")
     def _compute_port_color(self):
+        """Calcula y actualiza «puerto color» a partir de los datos actuales y sus relaciones."""
         fiber_model = self.env["fiber.gis.cable.fiber"]
         for output in self:
             output.port_color = fiber_model.fiber_color(output.sequence)
@@ -744,12 +761,14 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.model
     def action_sync_all_drop_cable_colors(self):
+        """Ejecuta la acción de usuario «sincronización todos acometida cable colores» y devuelve el resultado correspondiente a Odoo."""
         outputs = self.search([("output_fiber_id", "!=", False)])
         outputs._sync_drop_cable_colors()
         return True
 
     @api.depends("splitter_id.node_id", "splitter_id.node_id.incoming_cable_ids.fiber_ids", "splitter_id.node_id.outgoing_cable_ids.fiber_ids")
     def _compute_available_fiber_ids(self):
+        """Actualiza las listas de fibras disponibles para los cables elegidos."""
         empty = self.env["fiber.gis.cable.fiber"]
         fibers_by_splitter = {}
         for output in self:
@@ -776,6 +795,7 @@ class FiberGisSplitterOutput(models.Model):
         "downstream_splitter_ids.tray_id",
     )
     def _compute_destination_label(self):
+        """Calcula y actualiza «destino etiqueta» a partir de los datos actuales y sus relaciones."""
         for output in self:
             if output.downstream_splitter_ids:
                 child = output.downstream_splitter_ids[:1]
@@ -790,6 +810,7 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.onchange("output_fiber_id")
     def _onchange_output_fiber_id(self):
+        """Recalcula los campos del formulario al cambiar «salida fibra identificador», antes de guardar el registro."""
         for output in self:
             if output.output_fiber_id and output.state == "free":
                 output.state = "connected"
@@ -798,6 +819,7 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.constrains("splitter_id", "output_fiber_id")
     def _check_output_fiber(self):
+        """Valida «salida fibra» antes de guardar y rechaza los datos que incumplen las reglas del modelo."""
         tray_line_model = self.env["fiber.gis.tray.line"]
         for output in self:
             fiber = output.output_fiber_id
@@ -839,6 +861,7 @@ class FiberGisSplitterOutput(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """Crea los registros y prepara sus relaciones o datos derivados antes de devolverlos."""
         for values in vals_list:
             if values.get("output_fiber_id"):
                 values.setdefault("employee_id", work_employee_id(self.env))
@@ -851,6 +874,7 @@ class FiberGisSplitterOutput(models.Model):
         return outputs
 
     def write(self, vals):
+        """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
         vals = dict(vals)
         if {"output_fiber_id", "state", "notes", "loss_db", "employee_id"}.intersection(vals):
             vals.setdefault("employee_id", work_employee_id(self.env))
@@ -874,6 +898,7 @@ class FiberGisSplitterOutput(models.Model):
         return result
 
     def unlink(self):
+        """Elimina los registros aplicando las comprobaciones y limpiezas necesarias en sus relaciones."""
         fibers = self.mapped("output_fiber_id")
         result = super().unlink()
         fibers._recompute_tray_state()

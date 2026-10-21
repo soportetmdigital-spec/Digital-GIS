@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_splice_import_wizard_form" model="ir.ui.view">
+        <field name="name">fiber.gis.splice.import.wizard.form</field>
+        <field name="model">fiber.gis.splice.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar cartas de empalme">
+                <sheet>
+                    <group invisible="result_html">
+                        <field name="archive_data" filename="archive_name" required="not result_html"/>
+                        <field name="archive_name" invisible="1"/>
+                    </group>
+                    <field name="result_html" nolabel="1" readonly="1" invisible="not result_html"/>
+                    <field name="skipped_report" filename="skipped_report_name" readonly="1" invisible="not result_html"/>
+                    <field name="skipped_report_name" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_import" type="object" string="Importar Excel" class="btn-primary" invisible="result_html"/>
+                    <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_splice_document_upload_form" model="ir.ui.view">
+        <field name="name">fiber.gis.splice.document.upload.form</field>
+        <field name="model">fiber.gis.splice.document</field>
+        <field name="arch" type="xml">
+            <form string="Subir carta Excel">
+                <sheet>
+                    <group>
+                        <field name="node_id" readonly="1"/>
+                        <field name="kind" invisible="1"/>
+                        <field name="name" invisible="1"/>
+                        <field name="file_data" filename="file_name" required="1"/>
+                        <field name="file_name" invisible="1"/>
+                        <field name="technician_comment" placeholder="Cambios realizados en el Excel"/>
+                        <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Guardar" special="save" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_splice_import" model="ir.actions.act_window">
+        <field name="name">Importar cartas de empalme</field>
+        <field name="res_model">fiber.gis.splice.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_fiber_gis_splice_import_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_fiber_gis_splice_import"
+        name="Importar cartas de empalme (ZIP)"
+        parent="fiber_gis.menu_fiber_gis_config"
+        action="action_fiber_gis_splice_import"
+        sequence="80"
+        groups="fiber_gis.group_fiber_gis_manager"/>
+</odoo>

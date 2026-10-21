@@ -24,6 +24,7 @@ MAP_ICON_PATHS = {
 
 
 def map_icon_preview_html(icon, color, label):
+    """Genera la vista previa HTML del icono que se muestra en el mapa."""
     icon = icon or "circle"
     color = escape(color or "#334155")
     label = escape(label or "Icono")

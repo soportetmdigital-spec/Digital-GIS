@@ -8,9 +8,7 @@
                 <field name="sequence"/>
                 <field name="name"/>
                 <field name="node_id"/>
-                <field name="capacity"/>
                 <field name="used_positions"/>
-                <field name="free_positions"/>
             </list>
         </field>
     </record>
@@ -28,9 +26,7 @@
                             <field name="sequence"/>
                         </group>
                         <group>
-                            <field name="capacity"/>
-                            <field name="used_positions" readonly="1"/>
-                            <field name="free_positions" readonly="1"/>
+                            <field name="used_positions" readonly="1" string="Trabajos registrados"/>
                         </group>
                     </group>
                     <notebook>

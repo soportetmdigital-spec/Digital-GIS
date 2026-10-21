@@ -9,6 +9,8 @@
                 <field name="name"/>
                 <field name="code"/>
                 <field name="node_kind"/>
+                <field name="cable_entry_count"/>
+                <field name="has_trays"/>
                 <field name="color" widget="fiber_color"/>
                 <field name="active"/>
             </list>
@@ -26,6 +28,8 @@
                             <field name="name"/>
                             <field name="code"/>
                             <field name="node_kind"/>
+                            <field name="cable_entry_count" string="Bocas de cable predeterminadas"/>
+                            <field name="has_trays"/>
                             <field name="sequence"/>
                             <field name="active"/>
                         </group>
