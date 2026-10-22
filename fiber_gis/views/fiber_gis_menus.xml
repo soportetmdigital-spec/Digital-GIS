@@ -19,5 +19,5 @@
         name="Configuraci&#xF3;n"
         parent="menu_fiber_gis_root"
         sequence="90"
-        groups="-fiber_gis.group_fiber_gis_manager"/>
+        groups="fiber_gis.group_fiber_gis_manager"/>
 </odoo>

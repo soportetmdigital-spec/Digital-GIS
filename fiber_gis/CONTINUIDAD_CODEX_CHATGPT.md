@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
-Actualizado: 2026-10-20  
-Versión de trabajo: **19.0.4.25**  
+Actualizado: 2026-10-22  
+Versión de trabajo: **19.0.4.26**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -64,7 +64,7 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.25.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.26.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -199,3 +199,13 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.25.zip` y mantener `fib
 - Conserva los resúmenes de conexión de origen y destino al lado de cada fibra. No se añaden estilos nuevos; se reaprovecha el SCSS actual de Odoo 19 del módulo.
 - Actualizar la prueba ORM y estática. Pendiente ejecutar ORM y revisar el diálogo en Odoo 19 Community + PostgreSQL.
 - Punto de retorno: `19.0.4.24`.
+
+## Iteración 19.0.4.26 — permisos de Configuración y copia de seguridad completa
+
+- `groups="-fiber_gis.group_fiber_gis_manager"` en los menús Configuración y Ajustes quitaba el grupo (Odoo 19 `convert.py`: prefijo `-` = `Command.unlink`) y los dejaba visibles para todos. Corregido a `groups="fiber_gis.group_fiber_gis_manager"`. No volver a usar `-` para restringir.
+- Ajustes solo para Responsable: se quita la fila ACL de Usuario del asistente y cada `action_*` llama a `_check_fiber_gis_manager()`.
+- La copia incluye todos los modelos persistentes (planes, cartas, cabeceras, equipos, puertos, interconexiones, biblioteca) y los binarios. La restauración usa el contexto `fiber_gis_restore`, comprobado en `create()` de elemento, cable, splitter, salida de splitter y equipo de armario para no regenerar hijos que vienen en la copia. Si se añade un modelo nuevo o un `create()` que genere registros hijos, incluirlo en `_backup_model_names()` y respetar ese contexto.
+- `cable_profile.name_get` sustituido por `_compute_display_name` (Odoo 19 no usa `name_get`).
+- Verificación: 70 comprobaciones estáticas, `node --check`, compileall y parseo XML. En Odoo 19 Community (rama oficial `19.0`) + PostgreSQL 16 se ejecutaron instalación, actualización desde 19.0.4.25 y `TestBackupRestore` (3/3 en verde). Sin CSS/SCSS ni migración.
+- Pendiente: 25 fallos ORM que ya existían en 19.0.4.25 (17 `TestCabinet` por `_check_manager` sin grupo Responsable en el usuario de prueba, 3 `TestSplitterManagement`, 2 `TestMapCable`, 2 `TestCableProfilesAndTechnicians`, 1 geocodificación sin red). No son de esta iteración; revisarlos en la siguiente.
+- Punto de retorno: `19.0.4.25`.

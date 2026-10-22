@@ -69,5 +69,5 @@
         parent="menu_fiber_gis_config"
         action="action_fiber_gis_settings"
         sequence="1"
-        groups="-fiber_gis.group_fiber_gis_manager"/>
+        groups="fiber_gis.group_fiber_gis_manager"/>
 </odoo>

@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.25`
+**Versión de esta revisión:** `19.0.4.26`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -146,7 +146,11 @@ Los metros con reserva se calculan a partir de los recorridos dibujados y el por
 
 ## 9. Copias de seguridad
 
-En **Digital GIS > Configuración > Ajustes**, utiliza **Crear copia de seguridad** y descarga el ZIP generado. Para recuperar esos datos, selecciona el archivo en **Restaurar copia** y ejecuta la restauración.
+En **Digital GIS > Configuración > Ajustes**, utiliza **Crear copia de seguridad** y descarga el ZIP generado. Para recuperar esos datos, selecciona el archivo en **Restaurar copia** y ejecuta la restauración. Ambas acciones están reservadas al perfil Responsable.
+
+La copia incluye sitios, elementos, fotos, cartas de empalme (Excel y fotos), puertos, cables con sus tramos y fibras, enlaces lógicos, bandejas y sus operaciones, splitters y salidas, planes de despliegue, cabeceras con racks, equipos, puertos e interconexiones, la biblioteca de equipos, el historial técnico y los catálogos. La restauración sustituye esos datos por los de la copia y vuelve a enlazar todas sus relaciones; no genera bandejas, fibras, salidas ni puertos adicionales. Si algo falla, Odoo deshace la restauración completa y los datos actuales quedan intactos.
+
+Las copias creadas antes de la versión `19.0.4.26` no contienen cartas de empalme, cabeceras ni planes de despliegue. Para no borrar esos datos, Odoo rechaza restaurar una copia antigua si existen cartas de empalme, fibras asignadas en cabeceras o planes de despliegue; crea una copia nueva antes de restaurar. Las fotos de las copias antiguas se recuperan.
 
 Esta copia del módulo no sustituye una copia completa de la base PostgreSQL ni del filestore de Odoo. Para un plan de recuperación completo, el administrador debe respaldar ambos con las herramientas de infraestructura y probar periódicamente la restauración en una base separada.
 
@@ -228,9 +232,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.25`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.25`, con pruebas estáticas locales; actualización y prueba ORM en Odoo 19 pendientes.
-- Paquete de esta entrega: `fiber_gis_19.0.4.25.zip`. Punto de retorno: `fiber_gis_19.0.4.24.zip`.
+- Versión de referencia: `19.0.4.26`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.26`, con pruebas estáticas locales; actualización y prueba ORM en Odoo 19 pendientes.
+- Paquete de esta entrega: `fiber_gis_19.0.4.26.zip`. Punto de retorno: `fiber_gis_19.0.4.25.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -338,23 +342,23 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## Memoria de continuidad
 
-Actualizado: 2026-10-20 — candidata local 19.0.4.25
+Actualizado: 2026-10-22 — candidata local 19.0.4.26
 
 ### Identidad y fuentes de verdad
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.24.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.25.zip`.
 
 ### Objetivo actual
 
-Mostrar las fibras del cable en la gestión del splitter con la representación visual habitual, incluidos los colores circulares de tubo y fibra.
+Reservar Configuración, Ajustes y copias de seguridad al perfil Responsable y conseguir que la copia de seguridad guarde y restaure todos los datos del módulo.
 
 ### Versión y entrega más reciente
 
-- Versión `19.0.4.25`, declarada en el manifiesto y sincronizada en el agente de geocodificación.
-- Las fibras del cable en el asistente de splitter reutilizan la representación visual habitual, con círculos de color, cable, extremo remoto y resúmenes de ambos extremos.
-- Se preparó `fiber_gis_19.0.4.25.zip`; raíz interna `fiber_gis/`.
+- Versión `19.0.4.26`, declarada en el manifiesto y sincronizada en el agente de geocodificación.
+- Menús de Configuración y Ajustes restringidos a Responsable; copia de seguridad completa y restauración sin duplicados; nombre de tipología con su Tipo GIS.
+- Probada en Odoo 19 Community + PostgreSQL 16: instalación, actualización desde 19.0.4.25 y `TestBackupRestore`. Quedan 25 fallos anteriores en otras pruebas ORM (ver cambios de 19.0.4.26).
 
 ### Estado comprobado
 
@@ -381,7 +385,7 @@ Mostrar las fibras del cable en la gestión del splitter con la representación 
 
 ### Siguiente paso exacto
 
-Instalar/actualizar la versión 19.0.4.25 en una base de prueba; revisar que los colores circulares y la tabla de estado de fibras se muestran correctamente en el diálogo de salida.
+Instalar/actualizar la versión 19.0.4.26 en una base de prueba; ejecutar `tests/test_backup_restore.py`, crear una copia con datos reales, restaurarla en una base separada y comparar el número de registros por modelo.
 
 ## Auditoría y cambios de la versión 19.0.4.10
 
@@ -495,6 +499,17 @@ Instalar/actualizar la versión 19.0.4.25 en una base de prueba; revisar que los
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.26
+
+- **Permisos.** Los menús **Configuración** y **Ajustes** usaban `groups="-fiber_gis.group_fiber_gis_manager"`. En Odoo 19 el prefijo `-` quita el grupo del menú (`Command.unlink` en `odoo/tools/convert.py`), por lo que quedaban visibles para todos. Ahora usan `groups="fiber_gis.group_fiber_gis_manager"`. El asistente de Ajustes deja de tener permiso para el perfil Usuario y sus acciones (guardar, colores CTO, recalcular fibras, crear y restaurar copia) comprueban el perfil Responsable en el servidor.
+- **Copia de seguridad.** Se añaden planes de despliegue, cartas de empalme, cabeceras, equipos, puertos, interconexiones y la biblioteca de equipos. Los binarios (fotos, cartas Excel, imágenes de biblioteca) se guardan en base64 y se restauran; antes se omitían y la restauración fallaba con cualquier foto.
+- **Restauración.** Con el contexto `fiber_gis_restore` no se generan automáticamente bandejas, fibras, tramos, salidas de splitter, líneas de bandeja ni puertos de panel, que vienen en la copia (antes se duplicaban). Solo se borran y restauran los modelos incluidos en la copia. Las relaciones many2many entre modelos del módulo se escriben cuando existen ambos extremos. Los campos calculados de solo lectura y los related almacenados no se escriben: se recalculan (antes se escribían, por ejemplo, las coordenadas related del cable sobre el elemento). Se desactiva el seguimiento de mail durante la restauración.
+- **Copias antiguas.** Se aceptan y se recuperan sus fotos (`b'...'`). Si contienen elementos o fibras pero no cartas, cabeceras o planes, y la base actual sí los tiene, se rechaza la restauración para no borrarlos.
+- **Tipologías.** `name_get` ya no se utiliza en Odoo 19; se sustituye por `_compute_display_name` para mostrar «Nombre - Tipo GIS: X».
+- Pruebas: 7 comprobaciones estáticas nuevas (`tests/check_backup_restore.py`) y `tests/test_backup_restore.py` (TransactionCase: copia y restauración sin duplicados con fotos, carta Excel, splitter, plan, cabecera, panel con fibra e interconexión; permisos; nombre de tipología). Sin cambios CSS/SCSS ni migración: los menús y permisos se actualizan con el módulo.
+- Ejecutado en Odoo 19 Community (rama `19.0` oficial) + PostgreSQL 16: instalación, actualización desde `19.0.4.25` (los menús pasan de 0 a 1 grupo y desaparece el permiso de Usuario sobre Ajustes) y `TestBackupRestore` en verde. El resto de la batería tiene 25 fallos que ya existían en `19.0.4.25` sin estos cambios (17 en `TestCabinet` por `_check_manager` al ejecutarse sin el grupo Responsable, 3 en `TestSplitterManagement`, 2 en `TestMapCable`, 2 en `TestCableProfilesAndTechnicians` y 1 de geocodificación sin red).
+- Referencias oficiales Odoo 19: [ORM](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html), [seguridad](https://www.odoo.com/documentation/19.0/developer/reference/backend/security.html), [`convert.py` 19.0](https://github.com/odoo/odoo/blob/19.0/odoo/tools/convert.py). Punto de retorno: `19.0.4.25`.
 
 ## Cambios de la versión 19.0.4.25
 

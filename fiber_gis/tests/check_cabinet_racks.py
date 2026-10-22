@@ -8,7 +8,7 @@ from lxml import etree
 
 ROOT = Path(__file__).resolve().parents[1]
 manifest = ast.literal_eval((ROOT / "__manifest__.py").read_text(encoding="utf-8"))
-assert manifest["version"] == "19.0.4.25"
+assert manifest["version"] == "19.0.4.26"
 
 cabinet_source = (ROOT / "models/cabinet.py").read_text(encoding="utf-8")
 for method in ("add_cabinet_rack", "move_equipment_to_rack", "create_interconnection", "delete_interconnection", "save_catalog_item"):

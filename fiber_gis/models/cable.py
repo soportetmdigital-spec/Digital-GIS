@@ -163,6 +163,9 @@ class FiberGisCable(models.Model):
             for values in vals_list:
                 values.setdefault("installation_employee_ids", [fields.Command.link(employee_id)])
         cables = super().create(vals_list)
+        if self.env.context.get("fiber_gis_restore"):
+            # Al restaurar una copia, tramos y fibras vienen en la propia copia.
+            return cables
         cables._sync_route_segments()
         cables.action_generate_fibers()
         return cables

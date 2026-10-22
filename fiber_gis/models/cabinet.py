@@ -429,6 +429,9 @@ class FiberGisCabinetEquipment(models.Model):
                     values[field_name] = defaults[field_name]
             normalized.append(values)
         records = super().create(normalized)
+        if self.env.context.get("fiber_gis_restore"):
+            # Al restaurar una copia, los puertos vienen en la propia copia.
+            return records
         for equipment in records:
             if equipment.kind in FIBER_PANEL_KINDS:
                 equipment._sync_ports()

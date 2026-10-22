@@ -52,5 +52,4 @@ access_fiber_gis_cabinet_equipment_manager,fiber.gis.cabinet.equipment manager,m
 access_fiber_gis_cabinet_port_manager,fiber.gis.cabinet.port manager,model_fiber_gis_cabinet_port,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_cabinet_interconnection_manager,fiber.gis.cabinet.interconnection manager,model_fiber_gis_cabinet_interconnection,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_cabinet_catalog_manager,fiber.gis.cabinet.catalog manager,model_fiber_gis_cabinet_catalog,fiber_gis.group_fiber_gis_manager,1,1,1,1
-access_fiber_gis_settings_wizard_user,fiber.gis.settings.wizard user,model_fiber_gis_settings_wizard,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_settings_wizard_manager,fiber.gis.settings.wizard manager,model_fiber_gis_settings_wizard,fiber_gis.group_fiber_gis_manager,1,1,1,1

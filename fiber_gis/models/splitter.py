@@ -296,6 +296,9 @@ class FiberGisSplitter(models.Model):
                 tray_name = tray.display_name if tray else "Bandeja"
                 values["name"] = f"Splitter {ratio} - {tray_name}"
         splitters = super().create(vals_list)
+        if self.env.context.get("fiber_gis_restore"):
+            # Al restaurar una copia, salidas y líneas de bandeja vienen en la propia copia.
+            return splitters
         splitters._sync_output_ports()
         splitters._sync_tray_lines()
         splitters.mapped("input_output_id")._sync_connection_state()
@@ -870,7 +873,8 @@ class FiberGisSplitterOutput(models.Model):
                 values["state"] = "connected"
         outputs = super().create(vals_list)
         outputs.mapped("output_fiber_id")._recompute_tray_state()
-        outputs._sync_drop_cable_colors()
+        if not self.env.context.get("fiber_gis_restore"):
+            outputs._sync_drop_cable_colors()
         return outputs
 
     def write(self, vals):

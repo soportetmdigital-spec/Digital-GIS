@@ -23,15 +23,14 @@ class FiberGisCableProfile(models.Model):
     active = fields.Boolean(default=True)
     _counts_valid = models.Constraint("CHECK(tube_count >= 0 AND fiber_count > 0)", "Indica fibras positivas y cero o mas tubos.")
 
-    def name_get(self):
+    @api.depends("name", "gis_type_id.name")
+    def _compute_display_name(self):
         """Devuelve el nombre legible que se muestra en los campos relacionales de Odoo."""
-        return [
-            (profile.id, "%s - Tipo GIS: %s" % (
+        for profile in self:
+            profile.display_name = "%s - Tipo GIS: %s" % (
                 profile.name,
                 profile.gis_type_id.name if profile.gis_type_id else "Sin definir",
-            ))
-            for profile in self
-        ]
+            )
 
     @api.depends("tube_count", "fiber_count")
     def _compute_total(self):

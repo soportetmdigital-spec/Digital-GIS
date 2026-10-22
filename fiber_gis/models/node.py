@@ -293,7 +293,9 @@ class FiberGisNode(models.Model):
             self._prepare_category_values(values)
             self._prepare_manhole_model_values(values)
         nodes = super().create(vals_list)
-        nodes._ensure_trays_from_count()
+        if not self.env.context.get("fiber_gis_restore"):
+            # Al restaurar una copia, las bandejas vienen en la propia copia.
+            nodes._ensure_trays_from_count()
         for node in nodes:
             node._log_work("element", "Elemento creado.")
         if not self.env.context.get("skip_fiber_gis_auto_photo_fetch"):
