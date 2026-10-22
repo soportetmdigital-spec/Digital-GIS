@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
 Actualizado: 2026-10-22  
-Versión de trabajo: **19.0.4.26**  
+Versión de trabajo: **19.0.4.27**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -64,7 +64,7 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.26.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.27.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -209,3 +209,12 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.26.zip` y mantener `fib
 - Verificación: 70 comprobaciones estáticas, `node --check`, compileall y parseo XML. En Odoo 19 Community (rama oficial `19.0`) + PostgreSQL 16 se ejecutaron instalación, actualización desde 19.0.4.25 y `TestBackupRestore` (3/3 en verde). Sin CSS/SCSS ni migración.
 - Pendiente: 25 fallos ORM que ya existían en 19.0.4.25 (17 `TestCabinet` por `_check_manager` sin grupo Responsable en el usuario de prueba, 3 `TestSplitterManagement`, 2 `TestMapCable`, 2 `TestCableProfilesAndTechnicians`, 1 geocodificación sin red). No son de esta iteración; revisarlos en la siguiente.
 - Punto de retorno: `19.0.4.25`.
+
+## Iteración 19.0.4.27 — fluidez del mapa
+
+- Medido con red sintética de 2.500 elementos y 3.000 cables en Odoo 19 Community + PostgreSQL 16 y Chromium sin GPU (Playwright). El coste del arrastre y el zoom está en el pintado del SVG (raster y paint), no en JavaScript.
+- Cambios: una única área de clic por cable, que no se pinta (`visibility: hidden` + `pointer-events: stroke`); tramos visibles de una sola línea; vértices proyectados en caché; coordenadas con una décima; arrastre del mapa también desde un cable, con captura del puntero diferida al primer movimiento para conservar clic y doble clic.
+- No reintroducir: agrupar varios tramos en un `<path>` (con zoom alto los guiones de cables largos se disparan) ni mover la transformación de vista previa al `<svg>` con `will-change`/`overflow: visible` (266 ms por fotograma frente a 37 ms).
+- Resultado: zoom en la vista general de 5,8 a 4,6 s de bloqueo; arrastre con zoom alto de 5,4 a 2,5 s. Más margen requeriría recortar los tramos al área visible con `stroke-dashoffset`, o dibujar en canvas; no se ha hecho.
+- Pendiente: revisión visual en navegador de escritorio con GPU y con la red real.
+- Punto de retorno: `19.0.4.26`.

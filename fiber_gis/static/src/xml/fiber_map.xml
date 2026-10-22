@@ -362,22 +362,22 @@
                     </t>
                     <g class="o_fiber_gis_cables">
                         <t t-foreach="visibleCables" t-as="cable" t-key="cable.id">
-                            <t t-foreach="cableSegments(cable)" t-as="segment" t-key="segment.key">
+                            <t t-set="cableRender" t-value="cableRenderData(cable)"/>
+                            <t t-foreach="cableRender.segments" t-as="segment" t-key="segment.key">
                                 <path
                                     t-att-data-cable-id="cable.id"
                                     t-att-data-segment-index="segment.index"
                                     t-att-d="segment.path"
-                                    t-att-stroke="cableColor(cable)"
-                                    t-att-class="cableSegmentBaseClass(cable, segment)"
+                                    t-att-stroke="cableRender.color"
+                                    t-att-class="segment.className"
                                     pointer-events="none"/>
-                                <path
-                                    t-att-data-cable-id="cable.id"
-                                    t-att-data-segment-index="segment.index"
-                                    t-att-d="segment.path"
-                                    class="o_fiber_gis_cable_hit"/>
                             </t>
+                            <path t-if="cableRender.path"
+                                t-att-data-cable-id="cable.id"
+                                t-att-d="cableRender.path"
+                                class="o_fiber_gis_cable_hit"/>
                             <t t-if="state.selectedCableId === cable.id">
-                                <t t-foreach="cableControlPoints(cable)" t-as="point" t-key="point.key">
+                                <t t-foreach="cableControlPoints(cable, cableRender.points)" t-as="point" t-key="point.key">
                                     <circle class="o_fiber_gis_cable_point"
                                         t-att-data-cable-point="cable.id + '-' + point.index"
                                         t-att-data-cable-id="cable.id"
@@ -401,11 +401,7 @@
                     </g>
                     <g t-if="state.trace &amp;&amp; state.showTraceLayer" class="o_fiber_gis_trace_overlay">
                         <t t-foreach="visibleTraceCables" t-as="cable" t-key="'trace-' + cable.id">
-                            <t t-foreach="cableSegments(cable)" t-as="segment" t-key="'trace-' + segment.key">
-                                <path
-                                    t-att-d="segment.path"
-                                    class="o_fiber_gis_trace_path"/>
-                            </t>
+                            <path t-att-d="cablePath(cable)" class="o_fiber_gis_trace_path"/>
                         </t>
                     </g>
                     <g class="o_fiber_gis_nodes">

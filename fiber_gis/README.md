@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.26`
+**Versión de esta revisión:** `19.0.4.27`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -63,6 +63,8 @@ Los catálogos iniciales son editables. Comprueba que las tipologías necesarias
 6. Completa en la ficha los datos técnicos, fotos, puertos, bandejas, fabricante, observaciones y trabajos que correspondan.
 
 Los iconos y colores predeterminados se toman del modelo/categoría, pero se pueden ajustar en el propio elemento cuando el perfil lo permite.
+
+Para desplazar el mapa, arrastra desde el fondo o desde un cable; un clic sin mover sigue seleccionando el cable y el doble clic abre su ficha. Arrastrar un elemento o sitio lo mueve, y arrastrar un vértice del cable seleccionado cambia su trazado.
 
 Si mueves un sitio, elemento o cable, puedes usar **Deshacer** y **Rehacer** en el mapa. Se conserva un historial de hasta 30 cambios recientes durante la sesión; no es un sustituto de la copia de seguridad.
 
@@ -232,9 +234,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.26`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.26`, con pruebas estáticas locales; actualización y prueba ORM en Odoo 19 pendientes.
-- Paquete de esta entrega: `fiber_gis_19.0.4.26.zip`. Punto de retorno: `fiber_gis_19.0.4.25.zip`.
+- Versión de referencia: `19.0.4.27`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.27`, probada en Odoo 19 Community + PostgreSQL 16 con Chromium sin GPU; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.27.zip`. Punto de retorno: `fiber_gis_19.0.4.26.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -342,20 +344,21 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## Memoria de continuidad
 
-Actualizado: 2026-10-22 — candidata local 19.0.4.26
+Actualizado: 2026-10-22 — candidata local 19.0.4.27
 
 ### Identidad y fuentes de verdad
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.25.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.26.zip`.
 
 ### Objetivo actual
 
-Reservar Configuración, Ajustes y copias de seguridad al perfil Responsable y conseguir que la copia de seguridad guarde y restaure todos los datos del módulo.
+Hacer más fluida la presentación del mapa/plano de trabajo con redes grandes.
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.27`: mapa con menos elementos SVG, áreas de clic que no se pintan, proyección de vértices en caché y arrastre del mapa también desde un cable.
 - Versión `19.0.4.26`, declarada en el manifiesto y sincronizada en el agente de geocodificación.
 - Menús de Configuración y Ajustes restringidos a Responsable; copia de seguridad completa y restauración sin duplicados; nombre de tipología con su Tipo GIS.
 - Probada en Odoo 19 Community + PostgreSQL 16: instalación, actualización desde 19.0.4.25 y `TestBackupRestore`. Quedan 25 fallos anteriores en otras pruebas ORM (ver cambios de 19.0.4.26).
@@ -385,7 +388,7 @@ Reservar Configuración, Ajustes y copias de seguridad al perfil Responsable y c
 
 ### Siguiente paso exacto
 
-Instalar/actualizar la versión 19.0.4.26 en una base de prueba; ejecutar `tests/test_backup_restore.py`, crear una copia con datos reales, restaurarla en una base separada y comparar el número de registros por modelo.
+Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la red real: arrastre desde fondo y desde cable, clic y doble clic en cable, mover elemento y vértice, zoom con rueda y trazado de cable nuevo.
 
 ## Auditoría y cambios de la versión 19.0.4.10
 
@@ -499,6 +502,16 @@ Instalar/actualizar la versión 19.0.4.26 en una base de prueba; ejecutar `tests
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.27
+
+- **Arrastre del mapa.** Pulsar sobre un cable bloqueaba el desplazamiento: en zonas densas el área de clic de los cables (16 px) cubre casi todo el fondo y el mapa parecía no responder. Ahora se arrastra también desde un cable. El puntero se captura solo cuando empieza el movimiento, de modo que un clic sin mover selecciona el cable y el doble clic abre su ficha. En modo de trazado de cable se mantiene el aviso anterior.
+- **Menos elementos SVG.** Cada cable tiene una sola área de clic en lugar de una por tramo. En una red de prueba de 2.500 elementos y 3.000 cables, la vista general pasa de 34.048 a 25.026 elementos SVG. Los tramos visibles siguen siendo un `<path>` de una sola línea, porque así el navegador solo genera los guiones visibles de los cables discontinuos; agruparlos multiplicaba el coste con zoom alto.
+- **Áreas de clic sin pintar.** `.o_fiber_gis_cable_hit` usa `visibility: hidden` y `pointer-events: stroke`: recibe el puntero y no se pinta.
+- **Menos cálculo por redibujado.** La proyección Mercator de los vértices de cada cable se guarda junto a su geometría; las coordenadas se escriben con una décima de píxel; la comprobación de cables del plan usa un conjunto en lugar de buscar en una lista por cable.
+- **Medición** (Odoo 19 Community + PostgreSQL 16, Chromium sin GPU, misma secuencia en ambas versiones): zoom de 6 pasos en la vista general de 5,8 s a 4,6 s de bloqueo y peor fotograma de 933 a 633 ms; zoom intermedio de 1,4 a 1,2 s; arrastre con zoom alto de 5,4 s a 2,5 s de bloqueo y de 54 a 21 fotogramas lentos. Con GPU los tiempos absolutos serán menores; falta revisarlo en un navegador de escritorio.
+- **Descartado tras medir.** Aplicar la transformación de vista previa al `<svg>` completo como capa compuesta (`will-change` y `overflow: visible`) costaba 266 ms por fotograma frente a 37 ms en el grupo interno; se mantiene la transformación en `.o_fiber_gis_scene`.
+- Comprobaciones: `tests/check_map_render.py` (5 comprobaciones estáticas) y prueba funcional en Chromium: clic y doble clic en cable, arrastre desde cable, arrastre de vértice con guardado, sin errores JavaScript. El SCSS se compiló en Odoo 19 Community. Sin cambios de modelo ni migración. Punto de retorno: `19.0.4.26`.
 
 ## Cambios de la versión 19.0.4.26
 

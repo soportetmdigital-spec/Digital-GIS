@@ -571,7 +571,10 @@ export class FiberGisMap extends Component {
     }
 
     mapPoint(latitude, longitude) {
-        const point = this.project(latitude, longitude);
+        return this.projectedToScreen(this.project(latitude, longitude));
+    }
+
+    projectedToScreen(point) {
         const bounds = this.state.bounds || { minX: point.x, minY: point.y };
         return {
             x: (point.x - bounds.minX) * this.state.scale + this.state.offsetX,
@@ -1273,7 +1276,14 @@ export class FiberGisMap extends Component {
     }
 
     cablePoints(cable) {
-        return this.cableGeoPoints(cable).map((point) => this.mapPoint(point[0], point[1]));
+        const geoPoints = this.cableGeoPoints(cable);
+        const cached = this._cablePointCache?.get(cable.id);
+        // La proyección Mercator de cada vértice no depende de la cámara: se guarda con la geometría.
+        if (cached?.points === geoPoints) {
+            cached.projected ||= geoPoints.map((point) => this.project(point[0], point[1]));
+            return cached.projected.map((point) => this.projectedToScreen(point));
+        }
+        return geoPoints.map((point) => this.mapPoint(point[0], point[1]));
     }
 
     cableGeoPoints(cable) {
@@ -1335,26 +1345,46 @@ export class FiberGisMap extends Component {
 
     cablePath(cable) {
         const points = this.cablePoints(cable);
-        if (!points.length) {
+        if (points.length < 2) {
             return "";
         }
-        return points.map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`).join(" ");
+        return this.pointsPath(points, 0, points.length - 1);
     }
 
-    cableSegments(cable) {
+    pointsPath(points, start, end) {
+        // Una décima de píxel basta para dibujar y acorta las cadenas que el navegador analiza.
+        let path = `M ${points[start].x.toFixed(1)} ${points[start].y.toFixed(1)}`;
+        for (let index = start + 1; index <= end; index += 1) {
+            path += ` L ${points[index].x.toFixed(1)} ${points[index].y.toFixed(1)}`;
+        }
+        return path;
+    }
+
+    cableRenderData(cable) {
+        // Cada tramo se dibuja con un <path> de una sola línea: el navegador solo genera los guiones
+        // visibles de una línea recta, y con zoom alto los cables discontinuos son muy largos.
+        // El área de clic, que no se pinta, es un único <path> por cable.
         const points = this.cablePoints(cable);
         if (points.length < 2) {
-            return [];
+            return { segments: [], path: "", color: "", points };
         }
-        return points.slice(0, -1).map((point, index) => ({
+        const kinds = this.cableSegmentKinds(cable);
+        const stateClasses = this.cableStateClasses(cable).map((name) => ` ${name}`).join("");
+        const segments = kinds.map((kind, index) => ({
             key: `${cable.id}-${index}`,
             index,
-            path: `M ${point.x} ${point.y} L ${points[index + 1].x} ${points[index + 1].y}`,
+            path: this.pointsPath(points, index, index + 1),
+            className: `o_fiber_gis_cable_base is-${kind}${stateClasses}`,
         }));
+        return {
+            segments,
+            path: this.pointsPath(points, 0, points.length - 1),
+            color: this.cableColor(cable),
+            points,
+        };
     }
 
-    cableControlPoints(cable) {
-        const points = this.cablePoints(cable);
+    cableControlPoints(cable, points = this.cablePoints(cable)) {
         if (points.length <= 2) {
             return [];
         }
@@ -1562,8 +1592,8 @@ export class FiberGisMap extends Component {
         return classes.join(" ");
     }
 
-    cableSegmentClass(cable, segment) {
-        const classes = [`is-${this.cableSegmentKind(cable, segment.index)}`];
+    cableStateClasses(cable) {
+        const classes = [];
         if (this.cableTypeCode(cable) === "CABLE_DROP") {
             classes.push("is-customer-drop");
         }
@@ -1572,11 +1602,20 @@ export class FiberGisMap extends Component {
         } else if (
             this.state.plan &&
             this.state.showExistingNetwork &&
-            !(this.state.planCableIds || []).includes(cable.id)
+            !this.planCableIdSet.has(cable.id)
         ) {
             classes.push("is-reference");
         }
-        return classes.join(" ");
+        return classes;
+    }
+
+    get planCableIdSet() {
+        const ids = this.state.planCableIds || [];
+        if (this._planCableIdSource !== ids) {
+            this._planCableIdSource = ids;
+            this._planCableIdSet = new Set(ids);
+        }
+        return this._planCableIdSet;
     }
 
     nodeGroupClass(node) {
@@ -1600,14 +1639,6 @@ export class FiberGisMap extends Component {
             classes.push("is-reference");
         }
         return classes.join(" ");
-    }
-
-    cableSegmentBaseClass(cable, segment) {
-        return `o_fiber_gis_cable_base ${this.cableSegmentClass(cable, segment)}`;
-    }
-
-    cableSegmentKind(cable, segmentIndex) {
-        return this.cableSegmentKinds(cable)[segmentIndex] || cable.route_kind || "underground";
     }
 
     cableSegmentKinds(cable) {
@@ -2580,11 +2611,13 @@ export class FiberGisMap extends Component {
             this.onSitePointerDown(owner.record, ev);
             return;
         }
-        if (owner?.kind === "cable") {
+        if (owner?.kind === "cable" && this.state.cableDraftMode) {
             ev.stopPropagation();
             this.onCableHitPointerDown(ev);
             return;
         }
+        // Sobre un cable también se arrastra el mapa: en zonas densas el área de clic de los cables
+        // cubre casi todo el fondo. Un clic sin movimiento sigue seleccionando el cable.
         this.onBackgroundPointerDown(ev);
     }
 
@@ -2694,14 +2727,14 @@ export class FiberGisMap extends Component {
         clearTimeout(this._interactionCommitTimer);
         const hadPendingCamera = Boolean(this._interactionCamera);
         const camera = this.beginInteractionCamera();
-        if (this.svg.el?.setPointerCapture) {
-            this.svg.el.setPointerCapture(ev.pointerId);
-        }
+        // El puntero se captura al empezar a moverse: un clic sin movimiento llega al cable que
+        // haya debajo para seleccionarlo o abrirlo con doble clic.
         this._panPointerStart = {
             x: ev.clientX,
             y: ev.clientY,
             offsetX: camera.offsetX,
             offsetY: camera.offsetY,
+            pointerId: ev.pointerId,
             moved: false,
             hadPendingCamera,
         };
@@ -3057,16 +3090,20 @@ export class FiberGisMap extends Component {
 
     previewCablePaths(cableId, geoPoints) {
         const points = geoPoints.map((point) => this.mapPoint(point[0], point[1]));
+        if (points.length < 2) {
+            return;
+        }
         const selector = `[data-cable-id="${Number(cableId)}"]`;
         for (const path of this.svg.el?.querySelectorAll(selector) || []) {
+            if (path.dataset.segmentIndex === undefined) {
+                path.setAttribute("d", this.pointsPath(points, 0, points.length - 1));
+                continue;
+            }
             const index = Number(path.dataset.segmentIndex);
             if (!Number.isInteger(index) || !points[index] || !points[index + 1]) {
                 continue;
             }
-            path.setAttribute(
-                "d",
-                `M ${points[index].x} ${points[index].y} L ${points[index + 1].x} ${points[index + 1].y}`
-            );
+            path.setAttribute("d", this.pointsPath(points, index, index + 1));
         }
         for (let index = 1; index < points.length - 1; index += 1) {
             const control = this.svg.el?.querySelector(
@@ -3284,6 +3321,9 @@ export class FiberGisMap extends Component {
             if (!this._panPointerStart.moved && Math.hypot(deltaX, deltaY) < 3) {
                 return;
             }
+            if (!this._panPointerStart.moved && this.svg.el?.setPointerCapture) {
+                this.svg.el.setPointerCapture(this._panPointerStart.pointerId);
+            }
             this._panPointerStart.moved = true;
             const camera = this.beginInteractionCamera();
             camera.offsetX = this._panPointerStart.offsetX + deltaX;
@@ -3348,7 +3388,7 @@ export class FiberGisMap extends Component {
         if (moved) {
             this._lastMapPointerDown = null;
         }
-        this._suppressMapClickUntil = moved ? Date.now() + 250 : 0;
+        this._suppressMapClickUntil = moved || panMoved ? Date.now() + 250 : 0;
 
         if (draggingSiteId && moved && preview?.geo) {
             const site = this.state.sites.find((item) => item.id === draggingSiteId);

@@ -523,8 +523,11 @@
 }
 
 .o_fiber_gis_cable_hit {
-    stroke: transparent;
+    // Solo recibe el puntero: oculto, no se pinta, pero pointer-events: stroke lo mantiene clicable.
+    stroke: #000;
     stroke-width: 16;
+    visibility: hidden;
+    pointer-events: stroke;
     cursor: pointer;
 }
 
