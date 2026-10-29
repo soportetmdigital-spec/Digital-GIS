@@ -43,6 +43,15 @@ class MapRenderChecks(unittest.TestCase):
     def test_projected_cable_vertices_are_cached(self):
         self.assertIn("cached.projected", method_body("cablePoints"))
 
+    def test_layer_checkboxes_are_saved_per_user(self):
+        self.assertIn('"get_fiber_gis_map_layers"', JS)
+        self.assertIn('"set_fiber_gis_map_layers"', method_body("saveLayerPreferences"))
+        for toggle in ("toggleMapLayer", "toggleNodeKind"):
+            self.assertIn("this.scheduleLayerPreferencesSave()", method_body(toggle))
+        # El trazado muestra todos los elementos solo mientras dura y luego recupera las capas.
+        self.assertIn("this.showLayersForDrawing()", JS)
+        self.assertEqual(JS.count("this.restoreLayersAfterDrawing();"), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

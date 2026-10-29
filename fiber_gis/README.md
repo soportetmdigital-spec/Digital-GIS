@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.29`
+**Versión de esta revisión:** `19.0.4.30`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -56,7 +56,7 @@ Los catálogos iniciales son editables. Comprueba que las tipologías necesarias
 ## 4. Inventariar el mapa
 
 1. Abre **Digital GIS > Mapa**.
-2. Usa los filtros para mostrar sitios, elementos o cables y limitar el estado visible.
+2. Usa los filtros para mostrar sitios, elementos o cables y limitar el estado visible. Las **Capas** (Sitios, Elementos, Cables, Clientes y Acometidas) y los **Tipos de elemento** que desmarques se guardan en tu usuario: se mantienen al salir del mapa, al recargar la página y en otro navegador. Al trazar un cable se muestran todos los elementos para poder elegirlos y, al terminar, vuelven las capas que tenías. Si buscas o abres desde una ficha un elemento de una capa oculta, esa capa se muestra para enseñártelo, pero no cambia lo guardado.
 3. Busca un elemento por su nombre o matrícula. Para una dirección, introduce la calle y la población para acotar el resultado.
 4. Pulsa **Elemento** para crear un equipo. Indica nombre, matrícula, modelo, tipo de función, coordenadas y dirección. Si la geocodificación devuelve una dirección larga, corrígela en la ficha para guardar la forma corta usada por el equipo.
 5. Coloca el elemento en su ubicación real y confirma las coordenadas antes de guardar. El mapa permite abrir la ficha del elemento desde su marcador.
@@ -234,9 +234,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.29`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.29`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.29.zip`. Punto de retorno: `fiber_gis_19.0.4.28.zip`.
+- Versión de referencia: `19.0.4.30`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.30`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.30.zip`. Punto de retorno: `fiber_gis_19.0.4.29.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -350,14 +350,15 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.28.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.29.zip`.
 
 ### Objetivo actual
 
-Presentación clara de las líneas de bandeja, tubo oculto en cables de un solo tubo y color por defecto de los cables dibujados según sus fibras.
+Recordar por usuario las capas y tipos de elemento ocultos en el mapa.
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.30`: capas del mapa guardadas en `res.users.settings`.
 - Versión `19.0.4.29`: rejilla de bandejas corregida, «T» solo con varios tubos y colores por número de fibras.
 - Versión `19.0.4.28`: retirado **Crear y seguir trazando**; cada cable termina al crearlo.
 - Versión `19.0.4.27`: mapa con menos elementos SVG, áreas de clic que no se pintan, proyección de vértices en caché y arrastre del mapa también desde un cable.
@@ -504,6 +505,14 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.30
+
+- **Capas del mapa guardadas por usuario.** Los check de **Capas** (Sitios, Elementos, Cables, Clientes, Acometidas) y **Tipos de elemento** se reiniciaban al salir del mapa, al recargar o al trazar un cable. Ahora se guardan en los ajustes del usuario (`res.users.settings`, campo `fiber_gis_map_layers`, modelo oficial de Odoo 19 con un registro por usuario) al marcar o desmarcar, y se aplican al abrir el mapa. Cada usuario tiene los suyos y valen en cualquier navegador.
+- Al trazar un cable se muestran temporalmente todos los elementos para poder elegir origen y destino; al terminar o cancelar vuelven las capas del usuario. Si se cambia un check durante el trazado, ese cambio se conserva.
+- Buscar o abrir desde una ficha un elemento o cable de una capa oculta la muestra para enseñarlo, pero no modifica lo guardado: al volver a abrir el mapa se recuperan las capas del usuario.
+- La capa de trazado de fibra no se guarda, porque solo existe en el diagnóstico de una fibra.
+- Pruebas: `TestMapLayers` (guardado por usuario y normalización) y comprobación estática del guardado y la restauración tras trazar. Instalación y actualización: crea el campo nuevo en `res_users_settings`; sin migración manual. Punto de retorno: `19.0.4.29`.
 
 ## Cambios de la versión 19.0.4.29
 

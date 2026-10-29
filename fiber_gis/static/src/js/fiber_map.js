@@ -29,6 +29,15 @@ const VIEWPORT_CULL_PADDING = 0.12;
 const SEARCH_IDLE_MS = 1000;
 const MAP_HISTORY_LIMIT = 30;
 const CAMERA_STORAGE_KEY = "fiber_gis.map.camera";
+const LAYER_SAVE_IDLE_MS = 400;
+// Capas que se recuerdan por usuario: clave guardada en el servidor -> campo de estado del mapa.
+const SAVED_MAP_LAYERS = {
+    sites: "showSitesLayer",
+    nodes: "showNodesLayer",
+    cables: "showCablesLayer",
+    customers: "showCustomerNodesLayer",
+    dropCables: "showDropCablesLayer",
+};
 const STREET_SEARCH_AREAS = [
     { key: "granada", name: "Granada capital", south: 37.145, west: -3.64, north: 37.215, east: -3.545 },
     { key: "santa_fe", name: "Santa Fe", south: 37.175, west: -3.745, north: 37.205, east: -3.68 },
@@ -151,6 +160,10 @@ export class FiberGisMap extends Component {
             clearTimeout(this._catastroFrameTimer);
             clearTimeout(this._searchTimer);
             clearTimeout(this._tooltipTimer);
+            if (this._layerSaveTimer) {
+                clearTimeout(this._layerSaveTimer);
+                this.saveLayerPreferences();
+            }
             if (this._sceneAnimationFrame) {
                 cancelAnimationFrame(this._sceneAnimationFrame);
             }
@@ -180,7 +193,7 @@ export class FiberGisMap extends Component {
             const cableDomain = loadOnlyPlan
                 ? [["id", "in", planScope.cable_ids || []]]
                 : [["active", "=", true]];
-            const [sites, nodes, cables, types, mapDetailZoom, cableProfiles] = await Promise.all([
+            const [sites, nodes, cables, types, mapDetailZoom, cableProfiles, savedLayers] = await Promise.all([
                 this.orm.searchRead(
                     "fiber.gis.site",
                     siteDomain,
@@ -259,7 +272,15 @@ export class FiberGisMap extends Component {
                     [["active", "=", true]],
                     ["name", "gis_type_id", "tube_count", "fiber_count", "total_fiber_count"]
                 ),
+                this._layerPreferencesLoaded
+                    ? Promise.resolve(null)
+                    : this.orm.call("res.users.settings", "get_fiber_gis_map_layers", []).catch(() => null),
             ]);
+            if (!this._layerPreferencesLoaded) {
+                // Las capas guardadas se aplican al abrir el mapa; las recargas posteriores no las tocan.
+                this._layerPreferencesLoaded = true;
+                this.applyLayerPreferences(savedLayers);
+            }
             this.state.mapDetailZoom = Number(mapDetailZoom) || 0.67;
             this.state.cableProfiles = cableProfiles;
             this.state.sites = sites;
@@ -1957,6 +1978,11 @@ export class FiberGisMap extends Component {
         }[layer];
         if (fieldName) {
             this.state[fieldName] = !this.state[fieldName];
+            if (this._layersBeforeDrawing && fieldName in this._layersBeforeDrawing) {
+                // Durante el trazado, el cambio también se conserva al terminar.
+                this._layersBeforeDrawing[fieldName] = this.state[fieldName];
+            }
+            this.scheduleLayerPreferencesSave();
         }
     }
 
@@ -1968,6 +1994,70 @@ export class FiberGisMap extends Component {
             hiddenKinds.add(kind);
         }
         this.state.hiddenNodeKinds = [...hiddenKinds];
+        if (this._layersBeforeDrawing) {
+            this._layersBeforeDrawing.hiddenNodeKinds = [...hiddenKinds];
+        }
+        this.scheduleLayerPreferencesSave();
+    }
+
+    applyLayerPreferences(layers) {
+        if (!layers) {
+            return;
+        }
+        for (const [key, fieldName] of Object.entries(SAVED_MAP_LAYERS)) {
+            if (typeof layers[key] === "boolean") {
+                this.state[fieldName] = layers[key];
+            }
+        }
+        if (Array.isArray(layers.hiddenNodeKinds)) {
+            this.state.hiddenNodeKinds = [...layers.hiddenNodeKinds];
+        }
+    }
+
+    layerPreferences() {
+        // Mientras se traza un cable se guardan las capas que se recuperarán al terminar.
+        const source = this._layersBeforeDrawing || this.state;
+        const layers = {};
+        for (const [key, fieldName] of Object.entries(SAVED_MAP_LAYERS)) {
+            layers[key] = Boolean(source[fieldName]);
+        }
+        layers.hiddenNodeKinds = [...(source.hiddenNodeKinds || [])];
+        return layers;
+    }
+
+    scheduleLayerPreferencesSave() {
+        clearTimeout(this._layerSaveTimer);
+        this._layerSaveTimer = setTimeout(() => this.saveLayerPreferences(), LAYER_SAVE_IDLE_MS);
+    }
+
+    saveLayerPreferences() {
+        this._layerSaveTimer = null;
+        this.orm.call("res.users.settings", "set_fiber_gis_map_layers", [this.layerPreferences()]).catch(() => {
+            this.notification.add("No se han podido guardar las capas del mapa.", { type: "warning" });
+        });
+    }
+
+    showLayersForDrawing() {
+        // Para trazar hay que poder pulsar cualquier elemento; las capas del usuario se recuperan al terminar.
+        if (!this._layersBeforeDrawing) {
+            this._layersBeforeDrawing = {
+                showNodesLayer: this.state.showNodesLayer,
+                showCustomerNodesLayer: this.state.showCustomerNodesLayer,
+                hiddenNodeKinds: [...(this.state.hiddenNodeKinds || [])],
+            };
+        }
+        this.state.showNodesLayer = true;
+        this.state.showCustomerNodesLayer = true;
+        this.state.hiddenNodeKinds = [];
+    }
+
+    restoreLayersAfterDrawing() {
+        const layers = this._layersBeforeDrawing;
+        if (!layers) {
+            return;
+        }
+        this._layersBeforeDrawing = null;
+        Object.assign(this.state, layers);
     }
 
     async openSelected() {
@@ -2033,9 +2123,7 @@ export class FiberGisMap extends Component {
         if (!this.cableTypes.some((type) => type.id === Number(this.state.cableDraftTypeId))) {
             this.state.cableDraftTypeId = this.defaultCableTypeId();
         }
-        this.state.showNodesLayer = true;
-        this.state.showCustomerNodesLayer = true;
-        this.state.hiddenNodeKinds = [];
+        this.showLayersForDrawing();
         this.state.filter = "all";
         this.closeContextMenu();
         this.cancelTooltip();
@@ -2070,6 +2158,7 @@ export class FiberGisMap extends Component {
         }
         if (!availableBocas.length) {
             this.state.cableDraftMode = false;
+            this.restoreLayersAfterDrawing();
             this.notification.add(`No quedan bocas libres en ${node.code || node.name}.`, { type: "warning" });
             return;
         }
@@ -2097,6 +2186,7 @@ export class FiberGisMap extends Component {
         const wasActive = this.state.cableDraftMode;
         this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
         this.state.cableDraftMode = false;
+        this.restoreLayersAfterDrawing();
         this.state.cableDraftFromNodeId = null;
         this.state.cableDraftToNodeId = null;
         this.state.cableDraftViaPoints = [];
@@ -2123,6 +2213,7 @@ export class FiberGisMap extends Component {
         }
         this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
         this.state.cableDraftMode = false;
+        this.restoreLayersAfterDrawing();
         this.state.cableDraftFromNodeId = null;
         this.state.cableDraftToNodeId = null;
         this.state.cableDraftViaPoints = [];

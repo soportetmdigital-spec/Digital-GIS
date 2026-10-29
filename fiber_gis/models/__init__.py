@@ -20,3 +20,4 @@ from . import trace
 from . import link
 from . import cabinet
 from . import settings
+from . import user_settings
