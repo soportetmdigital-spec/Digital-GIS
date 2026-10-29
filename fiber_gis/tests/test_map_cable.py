@@ -83,15 +83,7 @@ class TestMapCable(TransactionCase):
         self.assertEqual(set(cable.segment_ids.mapped("route_kind")), {"underground"})
         self.assertEqual(set(json.loads(cable.route_segment_kinds)), {"underground"})
 
-    def test_continued_map_cable_registers_fibers_as_pass_in_first_tray(self):
-        middle = self.env["fiber.gis.node"].create({
-            "name": "Caja intermedia de trazado",
-            "code": "TEST-MAP-MIDDLE",
-            "latitude": 37.1781,
-            "longitude": -3.5935,
-            "has_trays": True,
-            "tray_count": 1,
-        })
+    def test_finalize_map_cable_applies_final_profile(self):
         cable_model = self.env["fiber.gis.cable"]
         temporary_profile = self.env["fiber.gis.cable.profile"].create({
             "name": "Tipología provisional de trazado",
@@ -105,45 +97,21 @@ class TestMapCable(TransactionCase):
             "tube_count": 2,
             "fiber_count": 4,
         })
-        incoming = cable_model.create_from_map(
-            self.origin.id, middle.id, [], False, "facade",
+        created = cable_model.create_from_map(
+            self.origin.id, self.destination.id, [], False, "facade",
             temporary_profile.id, 1, 1,
         )
-        outgoing = cable_model.create_from_map(
-            middle.id, self.destination.id, [], False, "facade",
-            temporary_profile.id, 2, 1,
-        )
-        final_result = cable_model.finalize_map_cable_chain(
-            [incoming["id"], outgoing["id"]], final_profile.id,
-        )
+        result = cable_model.finalize_map_cable(created["id"], final_profile.id)
 
-        tray = middle.tray_ids.sorted(lambda item: (item.sequence, item.id))[:1]
-        incoming_cable = cable_model.browse(incoming["id"])
-        outgoing_cable = cable_model.browse(outgoing["id"])
-        pass_lines = tray.line_ids.filtered(lambda line: line.line_type == "pass")
-
-        self.assertTrue(tray)
-        self.assertEqual(final_result["sangria_results"][0]["tray"], tray.display_name)
-        self.assertEqual(final_result["profile"], final_profile.display_name)
-        self.assertEqual(incoming_cable.profile_id, final_profile)
-        self.assertEqual(outgoing_cable.profile_id, final_profile)
-        self.assertEqual(incoming_cable.total_fiber_count, 8)
-        self.assertEqual(outgoing_cable.total_fiber_count, 8)
-        self.assertEqual(len(pass_lines), 8)
-        self.assertEqual(len(incoming_cable.fiber_ids), 8)
-        self.assertEqual(len(outgoing_cable.fiber_ids), 8)
-        self.assertEqual(
-            {line.input_fiber_id.cable_id.id for line in pass_lines},
-            {incoming_cable.id},
-        )
-        self.assertEqual(
-            {line.output_fiber_id.cable_id.id for line in pass_lines},
-            {outgoing_cable.id},
-        )
-        self.assertEqual(
-            {line.input_fiber_id.number for line in pass_lines},
-            {line.output_fiber_id.number for line in pass_lines},
-        )
+        cable = cable_model.browse(created["id"])
+        self.assertEqual(result["profile"], final_profile.display_name)
+        self.assertEqual(cable.profile_id, final_profile)
+        self.assertEqual(cable.total_fiber_count, 8)
+        self.assertEqual(len(cable.fiber_ids), 8)
+        self.assertEqual(sorted(cable.fiber_ids.mapped("tube")), [1, 1, 1, 1, 2, 2, 2, 2])
+        self.assertFalse(self.env["fiber.gis.tray.line"].search([
+            "|", ("input_fiber_id", "in", cable.fiber_ids.ids), ("output_fiber_id", "in", cable.fiber_ids.ids),
+        ]))
 
     def test_map_rejects_non_cable_asset_type(self):
         with self.assertRaises(ValidationError):

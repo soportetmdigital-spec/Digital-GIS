@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.27`
+**Versión de esta revisión:** `19.0.4.28`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -74,8 +74,8 @@ Si mueves un sitio, elemento o cable, puedes usar **Deshacer** y **Rehacer** en 
 
 1. Abre el elemento de origen y selecciona **Cables** o inicia el asistente de trazado desde el mapa.
 2. Elige el elemento de origen y el de destino. Los extremos de un cable son elementos de red, no otros cables.
-3. Al pulsar el destino, elige la boca de cada elemento. El mapa consulta las bocas disponibles aunque el cable existente quede fuera del plan visible. Si vas a enlazar más cajas, usa **Crear y seguir trazando**: la caja de destino pasa a ser el origen del siguiente tramo.
-4. Pulsa **Crear cable** al terminar la ruta o **Finalizar trazado**. Entonces selecciona la tipología que se aplicará a todos los tramos; se actualizan el número de tubos y las fibras por tubo o el total, y se regeneran las fibras con la codificación de colores establecida. Al finalizar, el mapa registra sangrías por número de fibra en la primera bandeja de cada caja intermedia. Puedes modificarlas luego en Gestión de bandejas; si una bandeja no existe o alguna fibra ya está ocupada, se muestra un aviso. Si las fibras ya se han usado antes de finalizar, elige **Dejar tipología actual** para conservar esos datos.
+3. Al pulsar el destino, elige la boca de cada elemento. El mapa consulta las bocas disponibles aunque el cable existente quede fuera del plan visible.
+4. Pulsa **Crear cable** y selecciona la tipología; se actualizan el número de tubos y las fibras por tubo o el total, y se regeneran las fibras con la codificación de colores establecida. Si las fibras ya se han usado, elige **Dejar tipología actual** para conservar esos datos. El trazado termina con cada cable: desplaza o amplía el mapa si lo necesitas y empieza el siguiente cable desde su caja de origen.
 5. Dibuja el recorrido en el mapa cuando se conozca. Revisa el tipo de instalación y la geometría antes de guardar.
 6. En la ficha del cable completa el nombre manual, la fecha, la longitud medida si ya se conoce y los técnicos que lo instalaron.
 7. Revisa las pestañas **Tramos**, **Fibras**, **Geometría** y **Notas**. La ficha de fibras separa la información de los dos extremos cuando está registrada.
@@ -107,7 +107,7 @@ Operaciones disponibles en el asistente:
 
 Cada operación requiere seleccionar la bandeja donde se hará el trabajo. Una misma bandeja puede contener continuidad de paso, fibras en punta, fusiones y splitters en fibras distintas. Si se cambia el tratamiento de una fibra que ya tiene un registro, Odoo muestra una confirmación antes de reemplazarlo. Cuando una acometida parte de un splitter, se selecciona la misma bandeja donde está instalado ese splitter. Al abrir una línea de paso en el esquema, se abre la bandeja para editarla sin convertir por accidente la continuidad en una fibra en punta.
 
-Para registrar un cable que atraviesa una caja, dibuja un tramo hasta esa caja y pulsa **Crear y seguir trazando** para comenzar el siguiente. Al finalizar la cadena, Odoo registra la continuidad entre los tramos. El mapa no infiere cajas intermedias a partir de la geometría de un único cable dibujado de extremo a extremo.
+Para registrar un cable que atraviesa una caja, dibuja un cable hasta esa caja y otro desde ella, y registra la continuidad con **Sangría / cable de paso** en el **Asistente Bandejas** de la caja. El mapa no infiere cajas intermedias a partir de la geometría de un único cable dibujado de extremo a extremo.
 
 La ficha del splitter permite revisar sus entradas y salidas. Al gestionar una salida con una fusión, el selector del cable identifica la caja del otro extremo y la boca correspondiente. Al elegirlo aparece el listado completo de fibras con los colores de tubo y fibra en círculos, el cable, el extremo remoto y el resumen de conexiones en origen y destino; así puedes comprobar si están libres, en punta, fusionadas, en paso o vinculadas a una salida de splitter/acometida antes de escoger una. Confirma que la relación y el técnico sean correctos antes de guardar.
 
@@ -234,9 +234,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.27`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.27`, probada en Odoo 19 Community + PostgreSQL 16 con Chromium sin GPU; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.27.zip`. Punto de retorno: `fiber_gis_19.0.4.26.zip`.
+- Versión de referencia: `19.0.4.28`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.28`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.28.zip`. Punto de retorno: `fiber_gis_19.0.4.27.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -344,20 +344,21 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## Memoria de continuidad
 
-Actualizado: 2026-10-22 — candidata local 19.0.4.27
+Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 ### Identidad y fuentes de verdad
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.26.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.27.zip`.
 
 ### Objetivo actual
 
-Hacer más fluida la presentación del mapa/plano de trabajo con redes grandes.
+Dibujar cables de uno en uno en el mapa: se retira el trazado encadenado.
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.28`: retirado **Crear y seguir trazando**; cada cable termina al crearlo.
 - Versión `19.0.4.27`: mapa con menos elementos SVG, áreas de clic que no se pintan, proyección de vértices en caché y arrastre del mapa también desde un cable.
 - Versión `19.0.4.26`, declarada en el manifiesto y sincronizada en el agente de geocodificación.
 - Menús de Configuración y Ajustes restringidos a Responsable; copia de seguridad completa y restauración sin duplicados; nombre de tipología con su Tipo GIS.
@@ -502,6 +503,13 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.28
+
+- Se retira **Crear y seguir trazando**. Mientras se dibuja un cable, pulsar en el mapa añade esquinas, así que al llegar al borde de la vista no había forma de desplazarlo para seguir encadenando cajas. Ahora el trazado termina al crear cada cable: se elige la tipología, el mapa vuelve a poder desplazarse y el siguiente cable se empieza desde su caja de origen.
+- El servidor deja de aceptar `previous_cable_id` en `create_from_map` y ya no crea sangrías automáticas entre tramos. `finalize_map_cable_chain` se sustituye por `finalize_map_cable(cable_id, profile_id)`, que aplica la tipología a un único cable planificado sin fibras usadas. La continuidad entre dos cables en una caja se registra con **Sangría / cable de paso** en el Asistente Bandejas.
+- Las sangrías creadas antes por el trazado encadenado se conservan. No hay cambios de esquema ni migración; sin cambios CSS/SCSS.
+- Pruebas: `TestMapCable.test_finalize_map_cable_applies_final_profile` sustituye a la prueba de cadena; la comprobación estática verifica que no quedan el botón, el estado de cadena ni los métodos retirados. Punto de retorno: `19.0.4.27`.
 
 ## Cambios de la versión 19.0.4.27
 

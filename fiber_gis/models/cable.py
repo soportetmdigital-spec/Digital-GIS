@@ -212,7 +212,6 @@ class FiberGisCable(models.Model):
         profile_id=False,
         from_boca=False,
         to_boca=False,
-        previous_cable_id=False,
     ):
         """Crea un cable a partir de los extremos y el recorrido recibidos desde la herramienta de dibujo del mapa."""
         from_node = self.env["fiber.gis.node"].browse(int(from_node_id or 0)).exists()
@@ -225,12 +224,6 @@ class FiberGisCable(models.Model):
             raise ValidationError("El elemento de origen no tiene coordenadas.")
         if not to_node.latitude or not to_node.longitude:
             raise ValidationError("El elemento de destino no tiene coordenadas.")
-
-        previous_cable = self.browse(int(previous_cable_id or 0)).exists()
-        if previous_cable:
-            previous_cable.check_access("read")
-            if previous_cable.to_node_id != from_node:
-                raise ValidationError("El nuevo tramo debe comenzar donde termina el tramo anterior.")
 
         self._lock_endpoint_nodes(from_node | to_node)
         self._validate_endpoint_boca(from_node, from_boca)
@@ -291,9 +284,6 @@ class FiberGisCable(models.Model):
         if plan:
             values["deployment_plan_id"] = plan.id
         cable = self.create(values)
-        default_sangria = {}
-        if previous_cable:
-            default_sangria = self._create_map_default_sangria(previous_cable, cable, from_node)
         return {
             "id": cable.id,
             "name": cable.display_name,
@@ -302,41 +292,29 @@ class FiberGisCable(models.Model):
             "type_id": cable.type_id.id,
             "from_boca": cable.from_boca,
             "to_boca": cable.to_boca,
-            "default_sangria_count": default_sangria.get("created", 0),
-            "default_sangria_tray": default_sangria.get("tray", ""),
-            "default_sangria_skipped": default_sangria.get("skipped", 0),
-            "default_sangria_note": default_sangria.get("note", ""),
         }
 
     @api.model
-    def finalize_map_cable_chain(self, cable_ids, profile_id):
-        """Aplica una tipología al final del trazado y registra las sangrías entre sus tramos."""
+    def finalize_map_cable(self, cable_id, profile_id):
+        """Aplica la tipología elegida al terminar de dibujar un cable en el mapa."""
         try:
-            ordered_ids = [int(cable_id) for cable_id in (cable_ids or [])]
+            cable_id = int(cable_id or 0)
             profile_id = int(profile_id or 0)
         except (TypeError, ValueError):
             raise ValidationError("Selecciona una tipología de cable válida.")
-        if not ordered_ids or len(set(ordered_ids)) != len(ordered_ids):
-            raise ValidationError("No hay tramos válidos para finalizar el trazado.")
-
-        cables = self.browse(ordered_ids).exists()
-        if len(cables) != len(ordered_ids):
-            raise ValidationError("Alguno de los cables del trazado ya no existe.")
+        cable = self.browse(cable_id).exists()
+        if not cable:
+            raise ValidationError("El cable dibujado ya no existe.")
         profile = self.env["fiber.gis.cable.profile"].browse(profile_id).exists()
         if not profile or not profile.active:
             raise ValidationError("Selecciona una tipología de cable activa.")
         profile.check_access("read")
-        for cable in cables:
-            cable.check_access("write")
-            if cable.state != "planned":
-                raise ValidationError("Solo se puede finalizar un trazado con cables planificados.")
+        cable.check_access("write")
+        if cable.state != "planned":
+            raise ValidationError("Solo se puede cambiar la tipología de un cable planificado.")
 
-        for incoming, outgoing in zip(cables, cables[1:]):
-            if incoming.to_node_id != outgoing.from_node_id:
-                raise ValidationError("Los tramos del trazado no forman una cadena continua.")
-
-        self._lock_endpoint_nodes(cables.mapped("from_node_id") | cables.mapped("to_node_id"))
-        fibers = cables.mapped("fiber_ids")
+        self._lock_endpoint_nodes(cable.from_node_id | cable.to_node_id)
+        fibers = cable.fiber_ids
         used_fibers = fibers.filtered(lambda fiber: (
             fiber.state != "free"
             or fiber.tray_input_line_ids
@@ -346,95 +324,18 @@ class FiberGisCable(models.Model):
             or fiber.port_ids
         ))
         if used_fibers:
-            raise ValidationError("No se puede cambiar la tipología porque ya se han usado fibras de estos cables.")
+            raise ValidationError("No se puede cambiar la tipología porque ya se han usado fibras de este cable.")
 
-        # Los cables recién dibujados aún no tienen trabajos de fibra; se regeneran para
+        # El cable recién dibujado aún no tiene trabajos de fibra; se regeneran para
         # que el número y los tubos correspondan a la tipología elegida al finalizar.
         fibers.unlink()
-        cables.write({
+        cable.write({
             "profile_id": profile.id,
             "tube_count": profile.tube_count,
             "fiber_count": profile.fiber_count,
         })
-        cables.action_generate_fibers()
-
-        sangria_results = []
-        for incoming, outgoing in zip(cables, cables[1:]):
-            result = self._create_map_default_sangria(incoming, outgoing, incoming.to_node_id)
-            result["node"] = incoming.to_node_id.display_name
-            sangria_results.append(result)
-
-        return {
-            "cable_ids": cables.ids,
-            "profile": profile.display_name,
-            "sangria_results": sangria_results,
-        }
-
-    @api.model
-    def _create_map_default_sangria(self, previous_cable, cable, node):
-        """Registra como sangría el paso entre dos tramos consecutivos en la primera bandeja."""
-        previous_cable.action_generate_fibers()
         cable.action_generate_fibers()
-        node._ensure_trays_from_count()
-        tray = node.tray_ids.sorted(lambda item: (item.sequence, item.id))[:1]
-        if not tray:
-            return {"note": "La caja intermedia no tiene bandejas; no se registró la sangría."}
-
-        if (
-            previous_cable.total_fiber_count != cable.total_fiber_count
-            or previous_cable.tube_count != cable.tube_count
-            or previous_cable.fiber_count != cable.fiber_count
-        ):
-            return {
-                "tray": tray.display_name,
-                "note": "Los tramos tienen distinta distribución de fibras o tubos; revisa la sangría desde Gestión de bandejas.",
-            }
-
-        input_by_number = {fiber.number: fiber for fiber in previous_cable.fiber_ids}
-        output_by_number = {fiber.number: fiber for fiber in cable.fiber_ids}
-        pairs = [
-            (input_by_number[number], output_by_number[number])
-            for number in sorted(input_by_number.keys() & output_by_number.keys())
-        ]
-        if not pairs:
-            return {"tray": tray.display_name, "note": "Los cables no tienen fibras numeradas compatibles."}
-
-        all_fibers = self.env["fiber.gis.cable.fiber"].browse(
-            [fiber.id for pair in pairs for fiber in pair]
-        )
-        occupied_lines = self.env["fiber.gis.tray.line"].search([
-            ("node_id", "=", node.id),
-            "|",
-            ("input_fiber_id", "in", all_fibers.ids),
-            ("output_fiber_id", "in", all_fibers.ids),
-        ])
-        occupied_ids = set(occupied_lines.mapped("input_fiber_id").ids + occupied_lines.mapped("output_fiber_id").ids)
-        occupied_ids.update(self.env["fiber.gis.splitter"].search([
-            ("node_id", "=", node.id), ("input_fiber_id", "in", all_fibers.ids),
-        ]).mapped("input_fiber_id").ids)
-        occupied_ids.update(self.env["fiber.gis.splitter.output"].search([
-            ("splitter_id.node_id", "=", node.id), ("output_fiber_id", "in", all_fibers.ids),
-        ]).mapped("output_fiber_id").ids)
-
-        free_pairs = [
-            pair for pair in pairs
-            if pair[0].id not in occupied_ids and pair[1].id not in occupied_ids
-        ]
-        skipped = len(pairs) - len(free_pairs)
-        if free_pairs:
-            next_position = max(tray.line_ids.mapped("position") or [0]) + 1
-            self.env["fiber.gis.tray.line"].create([
-                {
-                    "tray_id": tray.id,
-                    "position": next_position + index,
-                    "line_type": "pass",
-                    "input_fiber_id": input_fiber.id,
-                    "output_fiber_id": output_fiber.id,
-                    "notes": "Sangría creada automáticamente al continuar el trazado del mapa.",
-                }
-                for index, (input_fiber, output_fiber) in enumerate(free_pairs)
-            ])
-        return {"created": len(free_pairs), "tray": tray.display_name, "skipped": skipped}
+        return {"cable_id": cable.id, "profile": profile.display_name}
 
     @api.model
     def _lock_endpoint_nodes(self, nodes):

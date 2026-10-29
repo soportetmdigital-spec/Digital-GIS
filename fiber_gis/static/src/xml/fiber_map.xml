@@ -192,15 +192,13 @@
                             t-if="state.cableDraftFromNodeId"
                             class="btn btn-sm btn-light"
                             t-on-click="undoCableDraftPoint">Deshacer</button>
-                        <button class="btn btn-sm btn-light" t-on-click="finishCableDraftTracing">
-                            <t t-esc="state.cableDraftChainIds.length ? 'Finalizar trazado' : 'Cancelar'"/>
-                        </button>
+                        <button class="btn btn-sm btn-light" t-on-click="finishCableDraftTracing">Cancelar</button>
                     </div>
                 </div>
                 <div t-if="state.showCableDraftFinalize" class="o_fiber_gis_boca_dialog_backdrop">
                     <section class="o_fiber_gis_boca_dialog" role="dialog" aria-modal="true" aria-labelledby="fiber-gis-cable-type-title">
-                        <h3 id="fiber-gis-cable-type-title">Tipología del trazado</h3>
-                        <p>Elige el tipo de cable que se aplicará a todos los tramos de esta cadena.</p>
+                        <h3 id="fiber-gis-cable-type-title">Tipología del cable</h3>
+                        <p>Elige el tipo de cable que se aplicará al cable dibujado.</p>
                         <div class="o_fiber_gis_cable_draft_type">
                             <label for="fiber_gis_cable_final_profile">Tipología de cable</label>
                             <select id="fiber_gis_cable_final_profile" class="form-select" t-model="state.cableDraftFinalProfileId">
@@ -212,7 +210,7 @@
                         </div>
                         <div class="o_fiber_gis_boca_actions">
                             <button class="btn btn-light" t-att-disabled="state.cableDraftFinalizing" t-on-click="cancelCableDraftFinalization">Dejar tipología actual</button>
-                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFinalProfileId || state.cableDraftFinalizing" t-on-click="finalizeCableDraftChain">
+                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFinalProfileId || state.cableDraftFinalizing" t-on-click="finalizeCableDraft">
                                 <t t-esc="state.cableDraftFinalizing ? 'Finalizando...' : 'Aplicar tipología y finalizar'"/>
                             </button>
                         </div>
@@ -246,9 +244,6 @@
                             <button class="btn btn-light" t-on-click="cancelCableDraftDestination">Volver al mapa</button>
                             <button class="btn btn-primary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="saveCableDraft">
                                 <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear cable'"/>
-                            </button>
-                            <button class="btn btn-secondary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="() => this.saveCableDraft(true)">
-                                <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear y seguir trazando'"/>
                             </button>
                         </div>
                     </section>

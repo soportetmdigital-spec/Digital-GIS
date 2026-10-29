@@ -98,7 +98,7 @@ export class FiberGisMap extends Component {
             cableDraftToBocas: [],
             cableDraftRouteKind: "underground",
             cableDraftTypeId: false,
-            cableDraftChainIds: [],
+            cableDraftCableId: false,
             cableDraftFinalProfileId: false,
             showCableDraftFinalize: false,
             cableDraftFinalizing: false,
@@ -2021,7 +2021,7 @@ export class FiberGisMap extends Component {
             return;
         }
         this.state.cableDraftMode = true;
-        this.state.cableDraftChainIds = [];
+        this.state.cableDraftCableId = false;
         this.state.showCableDraftFinalize = false;
         this.state.cableDraftFromNodeId = null;
         this.state.cableDraftViaPoints = [];
@@ -2107,7 +2107,7 @@ export class FiberGisMap extends Component {
         this.state.cableDraftToBocas = [];
         this._draftPreviewCursor = null;
         this.state.cableDraftSaving = false;
-        this.state.cableDraftChainIds = [];
+        this.state.cableDraftCableId = false;
         this.state.cableDraftFinalProfileId = false;
         this.state.showCableDraftFinalize = false;
         this.state.cableDraftFinalizing = false;
@@ -2117,7 +2117,7 @@ export class FiberGisMap extends Component {
     }
 
     finishCableDraftTracing() {
-        if (!this.state.cableDraftChainIds.length) {
+        if (!this.state.cableDraftCableId) {
             this.cancelCableDrawing();
             return;
         }
@@ -2139,56 +2139,42 @@ export class FiberGisMap extends Component {
 
     cancelCableDraftFinalization() {
         this.state.showCableDraftFinalize = false;
-        this.state.cableDraftChainIds = [];
+        this.state.cableDraftCableId = false;
         this.state.cableDraftFinalProfileId = false;
         this.notification.add(
-            "Se conservan los cables con la tipología actual. Puedes cambiarla desde sus fichas.",
+            "Se conserva el cable con la tipología actual. Puedes cambiarla desde su ficha.",
             { type: "warning" }
         );
     }
 
-    async finalizeCableDraftChain() {
+    async finalizeCableDraft() {
         const profileId = Number(this.state.cableDraftFinalProfileId);
-        const cableIds = [...this.state.cableDraftChainIds];
-        if (!profileId || !cableIds.length || this.state.cableDraftFinalizing) {
+        const cableId = this.state.cableDraftCableId;
+        if (!profileId || !cableId || this.state.cableDraftFinalizing) {
             return;
         }
         this.state.cableDraftFinalizing = true;
         try {
             const result = await this.orm.call(
                 "fiber.gis.cable",
-                "finalize_map_cable_chain",
-                [cableIds, profileId]
+                "finalize_map_cable",
+                [cableId, profileId]
             );
             this.state.showCableDraftFinalize = false;
-            this.state.cableDraftChainIds = [];
+            this.state.cableDraftCableId = false;
             this.state.cableDraftFinalProfileId = false;
             this.state.cableDraftFinalizing = false;
             await this.loadData();
-            const lastCable = this.state.cables.find((item) => item.id === cableIds[cableIds.length - 1]);
-            if (lastCable) {
-                this.selectCable(lastCable);
+            const cable = this.state.cables.find((item) => item.id === cableId);
+            if (cable) {
+                this.selectCable(cable);
             }
-            this.notification.add(
-                `Trazado finalizado: ${cableIds.length} cable(s) con tipología ${result.profile}.`,
-                { type: "success" }
-            );
-            for (const sangria of result.sangria_results || []) {
-                if (sangria.created) {
-                    this.notification.add(
-                        `Sangría en ${sangria.node}: ${sangria.created} fibras en ${sangria.tray}.` +
-                        (sangria.skipped ? ` ${sangria.skipped} pares ocupados se dejaron sin modificar.` : ""),
-                        { type: "info" }
-                    );
-                } else if (sangria.note) {
-                    this.notification.add(`${sangria.node}: ${sangria.note}`, { type: "warning" });
-                }
-            }
+            this.notification.add(`Cable creado con tipología ${result.profile}.`, { type: "success" });
             this.cancelCableDrawing(false);
         } catch (error) {
             this.state.cableDraftFinalizing = false;
             this.notification.add(
-                error?.data?.message || "No se ha podido aplicar la tipología al trazado.",
+                error?.data?.message || "No se ha podido aplicar la tipología al cable.",
                 { type: "danger" }
             );
         }
@@ -2275,7 +2261,7 @@ export class FiberGisMap extends Component {
         this.state.cableDraftToBocas = [];
     }
 
-    async saveCableDraft(continueTracing = false) {
+    async saveCableDraft() {
         const node = this.cableDraftToNode;
         const fromBoca = Number(this.state.cableDraftFromBoca);
         const toBoca = Number(this.state.cableDraftToBoca);
@@ -2298,23 +2284,9 @@ export class FiberGisMap extends Component {
                     toBoca,
                 ]
             );
-            const destinationNodeId = node.id;
-            this.state.cableDraftChainIds = [...this.state.cableDraftChainIds, result.id];
+            this.state.cableDraftCableId = result.id;
             await this.loadData();
-            const length = Math.round(result.length_m || 0);
-            if (continueTracing) {
-                const nextSource = this.state.nodes.find((item) => item.id === destinationNodeId);
-                if (nextSource) {
-                    await this.setCableDraftFromNode(nextSource);
-                }
-                this.state.cableDraftSaving = false;
-                this.notification.add(
-                    `Cable creado: ${result.name} (${length} m). Continúa desde ${nextSource?.code || nextSource?.name || "la caja de destino"}.`,
-                    { type: "success" }
-                );
-            } else {
-                this.finishCableDraftTracing();
-            }
+            this.finishCableDraftTracing();
         } catch (error) {
             try {
                 const [fromBocas, toBocas] = await Promise.all([

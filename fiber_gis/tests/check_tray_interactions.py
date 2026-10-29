@@ -280,20 +280,23 @@ class TrayInteractionChecks(unittest.TestCase):
         self.assertIn("Continuidad de paso", trace_source)
         self.assertIn("Una sangría de paso necesita una fibra de entrada y otra de salida", tray_source)
 
-    def test_map_can_continue_tracing_and_documents_automatic_pass(self):
+    def test_map_draws_one_cable_at_a_time(self):
+        # El trazado encadenado se retiró en 19.0.4.28: cada cable termina al crearlo y el mapa
+        # vuelve a poder desplazarse antes de dibujar el siguiente.
         map_template = etree.parse(str(ROOT / "static/src/xml/fiber_map.xml"))
-        continue_button = map_template.xpath("//button[contains(@t-on-click, 'saveCableDraft(true)')]")
-        self.assertTrue(continue_button)
-        self.assertIn("Crear y seguir trazando", continue_button[0].xpath("string(.//t/@t-esc)"))
+        template_text = (ROOT / "static/src/xml/fiber_map.xml").read_text(encoding="utf-8")
+        self.assertFalse(map_template.xpath("//button[contains(@t-on-click, 'saveCableDraft(true)')]"))
+        self.assertNotIn("Crear y seguir trazando", template_text)
         self.assertFalse(map_template.xpath("//div[@class='o_fiber_gis_cable_draft_panel']//select"))
         self.assertTrue(map_template.xpath("//select[@id='fiber_gis_cable_final_profile']"))
         map_source = (ROOT / "static/src/js/fiber_map.js").read_text(encoding="utf-8")
         cable_source = (ROOT / "models/cable.py").read_text(encoding="utf-8")
-        self.assertIn("state.cableDraftChainIds", map_source)
-        self.assertIn('"finalize_map_cable_chain"', map_source)
-        self.assertIn("async saveCableDraft(continueTracing = false)", map_source)
-        self.assertIn("_create_map_default_sangria(previous_cable, cable, from_node)", cable_source)
-        self.assertIn("def finalize_map_cable_chain(self, cable_ids, profile_id)", cable_source)
+        self.assertNotIn("cableDraftChainIds", map_source)
+        self.assertIn('"finalize_map_cable"', map_source)
+        self.assertIn("async saveCableDraft() {", map_source)
+        self.assertNotIn("previous_cable_id", cable_source)
+        self.assertNotIn("_create_map_default_sangria", cable_source)
+        self.assertIn("def finalize_map_cable(self, cable_id, profile_id)", cable_source)
 
     def test_python310_and_xml_syntax(self):
         for path in ROOT.rglob("*.py"):

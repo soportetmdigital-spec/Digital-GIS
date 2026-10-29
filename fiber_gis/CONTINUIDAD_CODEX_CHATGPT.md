@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
-Actualizado: 2026-10-22  
-Versión de trabajo: **19.0.4.27**  
+Actualizado: 2026-10-29  
+Versión de trabajo: **19.0.4.28**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -60,11 +60,11 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 - Preservar los modelos reales MikroTik/Zyxel y la vista frontal del panel FS.com con atribución y autorización previamente confirmada.
 - En los campos de conexión de cable usar la etiqueta «Boca» sin «entrada/salida»; arqueta por defecto con icono cuadrado negro.
 - En Gestión de bandejas, los campos de Sangría se llaman «Cable entrada» y «Cable salida»; el selector conserva el nombre/matrícula contextual del cable.
-- En el mapa, «Crear y seguir trazando» encadena tramos desde la caja de destino. El backend valida la caja intermedia y crea continuidad Sangría por número de fibra en la primera bandeja; la operación puede editarse luego en Gestión de bandejas.
+- En el mapa se dibuja un cable cada vez. «Crear y seguir trazando» se retiró en 19.0.4.28 a petición de los técnicos (no se podía desplazar el mapa al llegar al borde); no reintroducir el trazado encadenado. La continuidad entre cables se registra con Sangría en Gestión de bandejas.
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.27.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.28.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -218,3 +218,10 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.27.zip` y mantener `fib
 - Resultado: zoom en la vista general de 5,8 a 4,6 s de bloqueo; arrastre con zoom alto de 5,4 a 2,5 s. Más margen requeriría recortar los tramos al área visible con `stroke-dashoffset`, o dibujar en canvas; no se ha hecho.
 - Pendiente: revisión visual en navegador de escritorio con GPU y con la red real.
 - Punto de retorno: `19.0.4.26`.
+
+## Iteración 19.0.4.28 — retirada del trazado encadenado
+
+- Petición de usuario: el técnico no podía desplazar el mapa al llegar al borde mientras encadenaba cajas con «Crear y seguir trazando», porque en modo trazado cada pulsación añade una esquina.
+- Retirados el botón, el estado `cableDraftChainIds`, `previous_cable_id` de `create_from_map`, `_create_map_default_sangria` y `finalize_map_cable_chain`. Nuevo `finalize_map_cable(cable_id, profile_id)` para elegir la tipología al crear cada cable.
+- Las sangrías ya registradas se conservan. Sin migración ni CSS/SCSS.
+- Punto de retorno: `19.0.4.27`.
