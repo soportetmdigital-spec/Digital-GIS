@@ -36,14 +36,16 @@
                                     <field name="position"/>
                                     <field name="line_type"/>
                                     <field name="input_cable_id" readonly="1"/>
-                                    <field name="input_tube" readonly="1"/>
-                                    <field name="input_tube_color" widget="fiber_color" readonly="1"/>
+                                    <field name="input_show_tube" column_invisible="1"/>
+                                    <field name="input_tube" readonly="1" invisible="not input_show_tube"/>
+                                    <field name="input_tube_color" widget="fiber_color" readonly="1" invisible="not input_show_tube"/>
                                     <field name="input_fiber_number" readonly="1"/>
                                     <field name="input_fiber_color" widget="fiber_color" readonly="1"/>
                                     <field name="input_fiber_id"/>
                                     <field name="output_cable_id" readonly="1"/>
-                                    <field name="output_tube" readonly="1"/>
-                                    <field name="output_tube_color" widget="fiber_color" readonly="1"/>
+                                    <field name="output_show_tube" column_invisible="1"/>
+                                    <field name="output_tube" readonly="1" invisible="not output_show_tube"/>
+                                    <field name="output_tube_color" widget="fiber_color" readonly="1" invisible="not output_show_tube"/>
                                     <field name="output_fiber_number" readonly="1"/>
                                     <field name="output_fiber_color" widget="fiber_color" readonly="1"/>
                                     <field name="output_fiber_id"/>

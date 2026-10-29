@@ -766,7 +766,8 @@ class FiberGisCableTrayWizard(models.TransientModel):
         if fiber and self.node_id:
             return self.node_id._fiber_endpoint_html(fiber, fiber.tube, fiber.tube_color, fiber.color)
         fiber_model = self.env["fiber.gis.cable.fiber"]
-        tube = cable._tube_for_fiber(number) if cable.tube_count else 0
+        # Con un solo tubo no se indica el tubo, como en el resto de vistas de fibra.
+        tube = cable._tube_for_fiber(number) if cable.tube_count > 1 else 0
         fiber_color_index = cable._fiber_color_index(number)
         fiber_color = fiber_model.fiber_color(fiber_color_index)
         tube_html = ""

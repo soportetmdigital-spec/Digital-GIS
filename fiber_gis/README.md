@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.28`
+**Versión de esta revisión:** `19.0.4.29`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -75,7 +75,7 @@ Si mueves un sitio, elemento o cable, puedes usar **Deshacer** y **Rehacer** en 
 1. Abre el elemento de origen y selecciona **Cables** o inicia el asistente de trazado desde el mapa.
 2. Elige el elemento de origen y el de destino. Los extremos de un cable son elementos de red, no otros cables.
 3. Al pulsar el destino, elige la boca de cada elemento. El mapa consulta las bocas disponibles aunque el cable existente quede fuera del plan visible.
-4. Pulsa **Crear cable** y selecciona la tipología; se actualizan el número de tubos y las fibras por tubo o el total, y se regeneran las fibras con la codificación de colores establecida. Si las fibras ya se han usado, elige **Dejar tipología actual** para conservar esos datos. El trazado termina con cada cable: desplaza o amplía el mapa si lo necesitas y empieza el siguiente cable desde su caja de origen.
+4. Pulsa **Crear cable** y selecciona la tipología. El cable recibe un color según su número de fibras: 6 FO celeste, 12 FO rojo, 16 FO violeta, 24 FO marrón, 48 FO verde, 72 FO verde oscuro, 80 FO azul, 96 FO rosa, 128 FO naranja y 288 FO negro; otras cantidades usan el color por defecto. Puedes cambiarlo en la ficha del cable. Al elegir la tipología se actualizan el número de tubos y las fibras por tubo o el total, y se regeneran las fibras con la codificación de colores establecida. Si las fibras ya se han usado, elige **Dejar tipología actual** para conservar esos datos. El trazado termina con cada cable: desplaza o amplía el mapa si lo necesitas y empieza el siguiente cable desde su caja de origen.
 5. Dibuja el recorrido en el mapa cuando se conozca. Revisa el tipo de instalación y la geometría antes de guardar.
 6. En la ficha del cable completa el nombre manual, la fecha, la longitud medida si ya se conoce y los técnicos que lo instalaron.
 7. Revisa las pestañas **Tramos**, **Fibras**, **Geometría** y **Notas**. La ficha de fibras separa la información de los dos extremos cuando está registrada.
@@ -234,9 +234,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.28`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.28`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.28.zip`. Punto de retorno: `fiber_gis_19.0.4.27.zip`.
+- Versión de referencia: `19.0.4.29`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.29`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.29.zip`. Punto de retorno: `fiber_gis_19.0.4.28.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -350,14 +350,15 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.27.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.28.zip`.
 
 ### Objetivo actual
 
-Dibujar cables de uno en uno en el mapa: se retira el trazado encadenado.
+Presentación clara de las líneas de bandeja, tubo oculto en cables de un solo tubo y color por defecto de los cables dibujados según sus fibras.
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.29`: rejilla de bandejas corregida, «T» solo con varios tubos y colores por número de fibras.
 - Versión `19.0.4.28`: retirado **Crear y seguir trazando**; cada cable termina al crearlo.
 - Versión `19.0.4.27`: mapa con menos elementos SVG, áreas de clic que no se pintan, proyección de vértices en caché y arrastre del mapa también desde un cable.
 - Versión `19.0.4.26`, declarada en el manifiesto y sincronizada en el agente de geocodificación.
@@ -503,6 +504,14 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.29
+
+- **Líneas de bandeja legibles.** La rejilla de cada línea conservaba una primera columna de 22 px para el número de posición retirado en 19.0.4.23, de modo que «Splitter», «Fibra en punta» o «1/4 salidas ocupadas» quedaban comprimidos, partidos en varias líneas o superpuestos con la relación del splitter. Ahora la rejilla tiene seis columnas (tipo, entrada, flecha, salida, relación y papelera) y cada línea emite siempre las seis casillas, aunque estén vacías, para que no se desplacen. Los textos de tipo, relación y salida vacía no se parten y se recortan con puntos suspensivos.
+- **Tubo solo con varios tubos.** Si el cable tiene un único tubo (o ninguno), no se muestra «T1» ni su color: en la ficha de la caja (Bandejas), el diagrama del splitter, los asistentes de bandeja y de salidas, el selector de fibras con casillas, el nombre de la fibra en los desplegables, la lista de fibras del cable, la ficha de la fibra y las listas de líneas de bandeja y salidas de splitter. Nuevo campo calculado `show_tube` en la fibra (y related en línea de bandeja, splitter y salida). Los datos de tubo no cambian.
+- **Color por defecto de los cables dibujados en el mapa** según el total de fibras de la tipología: 6 FO celeste `#38bdf8`, 12 FO rojo `#dc2626`, 16 FO violeta `#7c3aed`, 24 FO marrón `#8b4513`, 48 FO verde `#16a34a`, 72 FO verde oscuro `#14532d`, 80 FO azul `#2563eb`, 96 FO rosa `#ec4899`, 128 FO naranja `#f97316` y 288 FO negro `#111111`. Otras cantidades usan el color por defecto `#0f766e`. Se aplica al crear el cable y de nuevo al elegir la tipología final; los cables existentes no cambian.
+- **Corrección: cambiar un cable ya no le reasigna la tipología «12 fibras».** `write()` del cable buscaba una tipología con 0 tubos × 12 fibras en cualquier escritura que no incluyera la tipología (renombrar, cambiar el tipo de trazado, mover un vértice en el mapa) y se la asignaba. En cables de 24 fibras o más fallaba con «No se puede reducir la tipología»; en cables de 1 tubo × 12 fibras los dejaba sin tubos. Ahora la tipología solo se resuelve cuando cambian la tipología o las cantidades de tubos y fibras. Los cables que ya se hubieran convertido así conservan su valor actual: revisa su tipología en la ficha si hace falta.
+- Pruebas: `tests/check_tray_layout.py` (3 comprobaciones estáticas) y en `TestMapCable` colores por número de fibras, tubo oculto con un solo tubo y escritura que conserva la tipología. En la batería ORM bajan de 25 a 21 los fallos anteriores (la corrección de `write()` resuelve 4) y no aparece ninguno nuevo. SCSS compilado en Odoo 19 Community. Sin migración: los campos nuevos no se almacenan. Punto de retorno: `19.0.4.28`.
 
 ## Cambios de la versión 19.0.4.28
 

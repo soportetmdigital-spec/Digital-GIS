@@ -7,6 +7,21 @@ from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
 
+# Color por defecto de un cable dibujado en el mapa según el número total de fibras de su tipología.
+MAP_CABLE_COLOR_BY_FIBERS = {
+    6: "#38bdf8",  # Celeste
+    12: "#dc2626",  # Rojo
+    16: "#7c3aed",  # Violeta
+    24: "#8b4513",  # Marrón
+    48: "#16a34a",  # Verde
+    72: "#14532d",  # Verde oscuro
+    80: "#2563eb",  # Azul
+    96: "#ec4899",  # Rosa
+    128: "#f97316",  # Naranja
+    288: "#111111",  # Negro
+}
+DEFAULT_CABLE_COLOR = "#0f766e"
+
 class FiberGisCable(models.Model):
     _name = "fiber.gis.cable"
     _description = "Cable de fibra \u00f3ptica"
@@ -33,7 +48,7 @@ class FiberGisCable(models.Model):
         index=True,
         tracking=True,
     )
-    color = fields.Char(string="Color", default="#0f766e", tracking=True)
+    color = fields.Char(string="Color", default=DEFAULT_CABLE_COLOR, tracking=True)
     from_node_id = fields.Many2one("fiber.gis.node", required=True, string="Origen", tracking=True, ondelete="cascade")
     to_node_id = fields.Many2one("fiber.gis.node", required=True, string="Destino", tracking=True, ondelete="cascade")
     from_boca = fields.Integer(string="Boca", default=0, tracking=True)
@@ -280,6 +295,7 @@ class FiberGisCable(models.Model):
             "route_segment_kinds": json.dumps([route_kind] * (len(points) - 1)),
             "geometry_geojson": json.dumps(geometry),
             "state": "planned",
+            "color": self._map_cable_color(profile),
         }
         if plan:
             values["deployment_plan_id"] = plan.id
@@ -293,6 +309,11 @@ class FiberGisCable(models.Model):
             "from_boca": cable.from_boca,
             "to_boca": cable.to_boca,
         }
+
+    @api.model
+    def _map_cable_color(self, profile):
+        """Color por defecto de un cable dibujado en el mapa según las fibras de su tipología."""
+        return MAP_CABLE_COLOR_BY_FIBERS.get(profile.total_fiber_count, DEFAULT_CABLE_COLOR)
 
     @api.model
     def finalize_map_cable(self, cable_id, profile_id):
@@ -333,6 +354,7 @@ class FiberGisCable(models.Model):
             "profile_id": profile.id,
             "tube_count": profile.tube_count,
             "fiber_count": profile.fiber_count,
+            "color": self._map_cable_color(profile),
         })
         cable.action_generate_fibers()
         return {"cable_id": cable.id, "profile": profile.display_name}
@@ -424,7 +446,12 @@ class FiberGisCable(models.Model):
 
     def write(self, vals):
         """Actualiza los registros y mantiene coherentes sus campos y relaciones dependientes."""
-        vals = self._prepare_profile_values(dict(vals))
+        # La tipología solo se resuelve si cambian la tipología o las cantidades. Antes se buscaba
+        # en cualquier escritura con 0 tubos x 12 fibras y se reasignaba «12 fibras» al cable.
+        if "profile_id" in vals or {"tube_count", "fiber_count"}.intersection(vals):
+            vals = self._prepare_profile_values(dict(vals))
+        else:
+            vals = dict(vals)
         if (
             "route_kind" in vals
             and "route_segment_kinds" not in vals

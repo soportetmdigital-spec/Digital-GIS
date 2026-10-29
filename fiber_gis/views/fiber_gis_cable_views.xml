@@ -87,8 +87,8 @@
                             <field name="fiber_ids">
                                 <list create="0" delete="0">
                                     <field name="number"/>
-                                    <field name="tube"/>
-                                    <field name="tube_color" string="Color del tubo" widget="fiber_color" readonly="1"/>
+                                    <field name="tube" column_invisible="parent.tube_count &lt;= 1"/>
+                                    <field name="tube_color" string="Color del tubo" widget="fiber_color" readonly="1" column_invisible="parent.tube_count &lt;= 1"/>
                                     <field name="color" string="Color de la fibra" widget="fiber_color" readonly="1"/>
                                     <field name="from_connection_summary"/>
                                     <field name="to_connection_summary"/>
@@ -139,8 +139,9 @@
                         <group>
                             <field name="cable_id" readonly="1"/>
                             <field name="number" readonly="1"/>
-                            <field name="tube" readonly="1" invisible="not tube"/>
-                            <field name="tube_color" widget="fiber_color" readonly="1" invisible="not tube"/>
+                            <field name="show_tube" invisible="1"/>
+                            <field name="tube" readonly="1" invisible="not show_tube"/>
+                            <field name="tube_color" widget="fiber_color" readonly="1" invisible="not show_tube"/>
                             <field name="color" widget="fiber_color" readonly="1"/>
                         </group>
                         <group>

@@ -10,7 +10,7 @@
                         onChange="(ev) => this.onChange(item.id, ev)"
                     >
                         <span class="o_fiber_color_checkbox_label">
-                            <t t-if="item.tube">
+                            <t t-if="item.show_tube">
                                 <i class="o_fiber_color_swatch" t-att-style="colorStyle(item.tube_color)"/>
                                 <span>T-<t t-esc="item.tube"/></span>
                             </t>

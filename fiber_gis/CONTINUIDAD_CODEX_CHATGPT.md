@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
 Actualizado: 2026-10-29  
-Versión de trabajo: **19.0.4.28**  
+Versión de trabajo: **19.0.4.29**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -60,11 +60,13 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 - Preservar los modelos reales MikroTik/Zyxel y la vista frontal del panel FS.com con atribución y autorización previamente confirmada.
 - En los campos de conexión de cable usar la etiqueta «Boca» sin «entrada/salida»; arqueta por defecto con icono cuadrado negro.
 - En Gestión de bandejas, los campos de Sangría se llaman «Cable entrada» y «Cable salida»; el selector conserva el nombre/matrícula contextual del cable.
+- El tubo de una fibra («T1» y su color) solo se muestra si el cable tiene más de un tubo: usar `fiber.show_tube` en cualquier vista o HTML nuevo que muestre fibras.
+- Color por defecto de cables dibujados en el mapa según fibras de la tipología (`MAP_CABLE_COLOR_BY_FIBERS` en `models/cable.py`): 6 celeste, 12 rojo, 16 violeta, 24 marrón, 48 verde, 72 verde oscuro, 80 azul, 96 rosa, 128 naranja, 288 negro.
 - En el mapa se dibuja un cable cada vez. «Crear y seguir trazando» se retiró en 19.0.4.28 a petición de los técnicos (no se podía desplazar el mapa al llegar al borde); no reintroducir el trazado encadenado. La continuidad entre cables se registra con Sangría en Gestión de bandejas.
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.28.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.29.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -225,3 +227,11 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.28.zip` y mantener `fib
 - Retirados el botón, el estado `cableDraftChainIds`, `previous_cable_id` de `create_from_map`, `_create_map_default_sangria` y `finalize_map_cable_chain`. Nuevo `finalize_map_cable(cable_id, profile_id)` para elegir la tipología al crear cada cable.
 - Las sangrías ya registradas se conservan. Sin migración ni CSS/SCSS.
 - Punto de retorno: `19.0.4.27`.
+
+## Iteración 19.0.4.29 — presentación de bandejas, tubo y colores de cable
+
+- Causa del texto amontonado en Bandejas: la rejilla `.o_fiber_tray_line` conservaba la columna de 22 px de la posición retirada en 19.0.4.23 y las líneas sin flecha o salida desplazaban el resto. Rejilla de 6 columnas y casillas siempre presentes en `_tray_line_visual_html`. Si se añade o quita una casilla, ajustar a la vez la rejilla y el HTML (`tests/check_tray_layout.py`).
+- `show_tube` (no almacenado) en la fibra y related en línea de bandeja, splitter y salida; vistas con `invisible`/`column_invisible`.
+- Colores por número de fibras al crear el cable desde el mapa y al finalizar la tipología.
+- Corregido `FiberGisCable.write`: solo llama a `_prepare_profile_values` si cambian `profile_id`, `tube_count` o `fiber_count`. Antes cualquier escritura asignaba la tipología de 0 tubos × 12 fibras. Resuelve 4 fallos ORM previos (quedan 21 de los 25 anotados).
+- Punto de retorno: `19.0.4.28`.

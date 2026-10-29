@@ -112,9 +112,9 @@ def samples():
     node = Record(id=30)
     remote = Record(display_name="Caja de destino", address="Calle San Ant\u00f3n 63, Granada")
     cable = Record(display_name="Cable principal", from_node_id=node, to_node_id=remote)
-    fiber = Record(id=11, number=6, tube=2, tube_color="#ffa500", color="#ffffff", cable_id=cable)
+    fiber = Record(id=11, number=6, tube=2, show_tube=True, tube_color="#ffa500", color="#ffffff", cable_id=cable)
     other_cable = Record(display_name="Cable de salida", from_node_id=node, to_node_id=remote)
-    other = Record(id=12, number=3, tube=0, tube_color=False, color="#008000", cable_id=other_cable)
+    other = Record(id=12, number=3, tube=0, show_tube=False, tube_color=False, color="#008000", cable_id=other_cable)
     for name in ("_fiber_endpoint_html", "_fiber_endpoint_label", "_format_fiber_endpoint", "_tray_line_visual_html"):
         setattr(node, name, MethodType(method("node.py", name), node))
     line = Record(id=41, line_type="fusion", position=1, input_fiber_id=fiber, output_fiber_id=other,

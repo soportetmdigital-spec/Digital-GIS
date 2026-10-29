@@ -104,6 +104,7 @@ class FiberGisSplitter(models.Model):
     )
     input_tube = fields.Integer(related="input_fiber_id.tube", string="Tubo de entrada")
     input_tube_color = fields.Char(related="input_fiber_id.tube_color", string="Color del tubo")
+    input_show_tube = fields.Boolean(related="input_fiber_id.show_tube", string="Mostrar tubo de entrada")
     input_fiber_number = fields.Integer(related="input_fiber_id.number", string="N. fibra de entrada")
     input_fiber_color = fields.Char(related="input_fiber_id.color", string="Color de la fibra")
     nominal_loss_db = fields.Float(
@@ -581,7 +582,7 @@ class FiberGisSplitter(models.Model):
         if not fiber:
             return "<span class='o_fiber_splitter_free'>Sin fibra</span>"
         parts = []
-        if fiber.tube:
+        if fiber.show_tube:
             parts.append(
                 "<span class='o_fiber_splitter_identity'>"
                 f"<i style='background:{html.escape(fiber.tube_color or '#ffffff')}'></i>"
@@ -663,6 +664,7 @@ class FiberGisSplitterOutput(models.Model):
     )
     output_tube = fields.Integer(related="output_fiber_id.tube", string="Tubo")
     output_tube_color = fields.Char(related="output_fiber_id.tube_color", string="Color del tubo")
+    output_show_tube = fields.Boolean(related="output_fiber_id.show_tube", string="Mostrar tubo")
     output_fiber_number = fields.Integer(related="output_fiber_id.number", string="Fibra")
     output_fiber_color = fields.Char(related="output_fiber_id.color", string="Color de la fibra")
     destination_label = fields.Char(string="Destino", compute="_compute_destination_label", store=True)

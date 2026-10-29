@@ -24,7 +24,7 @@ export class FiberColorCheckboxesField extends Component {
             const { relation } = props.record.fields[props.name];
             const domain = getFieldDomain(props.record, props.name, props.domain);
             return orm.call(relation, "search_read", [domain], {
-                fields: ["display_name", "number", "tube", "color", "tube_color"],
+                fields: ["display_name", "number", "tube", "show_tube", "color", "tube_color"],
                 order: "tube, number, id",
                 context: props.context || {},
             });

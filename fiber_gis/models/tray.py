@@ -88,6 +88,8 @@ class FiberGisTrayLine(models.Model):
     output_fiber_color = fields.Char(related="output_fiber_id.color", string="Color salida")
     input_tube_color = fields.Char(related="input_fiber_id.tube_color", string="Color tubo entrada")
     output_tube_color = fields.Char(related="output_fiber_id.tube_color", string="Color tubo salida")
+    input_show_tube = fields.Boolean(related="input_fiber_id.show_tube", string="Mostrar tubo entrada")
+    output_show_tube = fields.Boolean(related="output_fiber_id.show_tube", string="Mostrar tubo salida")
     splitter_id = fields.Many2one(
         "fiber.gis.splitter",
         string="Splitter",

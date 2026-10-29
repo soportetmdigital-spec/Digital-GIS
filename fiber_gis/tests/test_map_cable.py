@@ -109,9 +109,65 @@ class TestMapCable(TransactionCase):
         self.assertEqual(cable.total_fiber_count, 8)
         self.assertEqual(len(cable.fiber_ids), 8)
         self.assertEqual(sorted(cable.fiber_ids.mapped("tube")), [1, 1, 1, 1, 2, 2, 2, 2])
+        # 8 fibras no tiene color asignado: se usa el color por defecto del cable.
+        self.assertEqual(cable.color, "#0f766e")
         self.assertFalse(self.env["fiber.gis.tray.line"].search([
             "|", ("input_fiber_id", "in", cable.fiber_ids.ids), ("output_fiber_id", "in", cable.fiber_ids.ids),
         ]))
+
+    def test_map_cable_color_follows_fiber_count(self):
+        cable_model = self.env["fiber.gis.cable"]
+        profiles = {
+            fibers: self.env["fiber.gis.cable.profile"].create({
+                "name": f"Tipología {fibers} FO de prueba",
+                "gis_type_id": self.distribution_type.id,
+                "tube_count": tubes,
+                "fiber_count": fibers // max(tubes, 1),
+            })
+            for fibers, tubes in ((12, 0), (24, 2), (288, 24))
+        }
+        created = cable_model.create_from_map(
+            self.origin.id, self.destination.id, [], False, "facade", profiles[12].id, 1, 1,
+        )
+        cable = cable_model.browse(created["id"])
+        self.assertEqual(cable.color, "#dc2626")
+        cable_model.finalize_map_cable(cable.id, profiles[24].id)
+        self.assertEqual(cable.color, "#8b4513")
+        cable_model.finalize_map_cable(cable.id, profiles[288].id)
+        self.assertEqual(cable.color, "#111111")
+
+    def test_single_tube_fibers_hide_the_tube(self):
+        cable_model = self.env["fiber.gis.cable"]
+        profile_model = self.env["fiber.gis.cable.profile"]
+        one_tube = profile_model.create({"name": "1 tubo x 12 de prueba", "tube_count": 1, "fiber_count": 12})
+        two_tubes = profile_model.create({"name": "2 tubos x 6 de prueba", "tube_count": 2, "fiber_count": 6})
+        single = cable_model.create({
+            "name": "Cable un tubo", "from_node_id": self.origin.id, "to_node_id": self.destination.id,
+            "profile_id": one_tube.id,
+        })
+        multi = cable_model.create({
+            "name": "Cable dos tubos", "from_node_id": self.origin.id, "to_node_id": self.destination.id,
+            "profile_id": two_tubes.id,
+        })
+        single_fiber = single.fiber_ids.sorted("number")[0]
+        multi_fiber = multi.fiber_ids.sorted("number")[0]
+        self.assertEqual(single_fiber.tube, 1)
+        self.assertFalse(single_fiber.show_tube)
+        self.assertNotIn("T-", single_fiber.display_name)
+        self.assertNotIn(">T1<", self.destination._fiber_endpoint_html(
+            single_fiber, single_fiber.tube, single_fiber.tube_color, single_fiber.color))
+        self.assertTrue(multi_fiber.show_tube)
+        self.assertIn("T-1", multi_fiber.display_name)
+
+    def test_unrelated_write_keeps_cable_profile(self):
+        profile = self.env["fiber.gis.cable.profile"].create({"name": "4 tubos x 6 de prueba", "tube_count": 4, "fiber_count": 6})
+        cable = self.env["fiber.gis.cable"].create({
+            "name": "Cable 24 fibras", "from_node_id": self.origin.id, "to_node_id": self.destination.id,
+            "profile_id": profile.id,
+        })
+        cable.write({"name": "Cable 24 fibras renombrado", "route_kind": "aerial"})
+        self.assertEqual(cable.profile_id, profile)
+        self.assertEqual((cable.tube_count, cable.fiber_count, len(cable.fiber_ids)), (4, 6, 24))
 
     def test_map_rejects_non_cable_asset_type(self):
         with self.assertRaises(ValidationError):

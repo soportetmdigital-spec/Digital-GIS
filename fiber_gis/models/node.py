@@ -951,15 +951,15 @@ class FiberGisNode(models.Model):
             )
         output = self._fiber_endpoint_html(line.output_fiber_id, line.output_tube, line.output_tube_color, line.output_fiber_color)
         if line.line_type in ("free", "pending_cancel"):
-            arrow_html = ""
-            output_html = ""
+            arrow_html = "<span class='o_fiber_tray_arrow'></span>"
+            output_html = "<span class='o_fiber_endpoint is-empty'></span>"
         elif line.line_type == "pass":
             if line.output_fiber_id:
                 arrow_html = "<span class='o_fiber_tray_arrow'>&rarr;</span>"
                 output_html = output or "<span class='o_fiber_endpoint is-empty'>Sin cable de salida</span>"
             else:
                 # Mantiene legibles los registros antiguos que solo guardaban la fibra de entrada.
-                arrow_html = ""
+                arrow_html = "<span class='o_fiber_tray_arrow'></span>"
                 output_html = "<span class='o_fiber_endpoint is-empty'>Sangría sin continuidad registrada</span>"
         elif line.line_type == "splitter":
             arrow_html = "<span class='o_fiber_tray_arrow'>&rarr;</span>"
@@ -975,7 +975,8 @@ class FiberGisNode(models.Model):
         else:
             arrow_html = "<span class='o_fiber_tray_arrow'>&rarr;</span>"
             output_html = output or "<span class='o_fiber_endpoint is-empty'>Sin salida</span>"
-        splitter = f"<span class='o_fiber_tray_ratio'>{html.escape(line.splitter_ratio)}</span>" if line.splitter_ratio else ""
+        # Cada línea tiene siempre las mismas casillas para que la rejilla no desplace columnas.
+        splitter = f"<span class='o_fiber_tray_ratio'>{html.escape(line.splitter_ratio or '')}</span>"
         notes = f"<small>{html.escape(line.notes or '')}</small>" if line.notes else ""
         pending_class = " is-pending-cancel" if line.line_type == "pending_cancel" else ""
         return (
@@ -999,7 +1000,7 @@ class FiberGisNode(models.Model):
         cable = fiber.cable_id.display_name or ""
         fiber_text = f"F{fiber.number}"
         parts = []
-        if tube:
+        if tube and fiber.show_tube:
             tube_text = f"T{tube}"
             tube_swatch = f"<i style='background:{html.escape(tube_color or '#e5e7eb')}'></i>"
             parts.append(f"{tube_swatch}{html.escape(tube_text)}")

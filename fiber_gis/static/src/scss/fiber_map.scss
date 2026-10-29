@@ -1095,7 +1095,9 @@
 
 .o_fiber_tray_line {
     display: grid;
-    grid-template-columns: 22px 58px minmax(0, 1fr) 16px minmax(0, 1fr) auto 24px;
+    // Tipo, entrada, flecha, salida, relación del splitter y papelera: cada línea emite siempre
+    // las seis casillas para que las columnas no se desplacen.
+    grid-template-columns: 112px minmax(0, 1fr) 16px minmax(0, 1fr) minmax(72px, auto) 24px;
     align-items: center;
     gap: 4px;
     padding: 6px 8px;
@@ -1140,6 +1142,17 @@
 .o_fiber_tray_type,
 .o_fiber_tray_ratio {
     color: #475569;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_fiber_tray_type {
+    font-weight: 600;
+}
+
+.o_fiber_tray_ratio {
+    justify-self: end;
 }
 
 .o_fiber_endpoint {
@@ -1184,6 +1197,13 @@
 .o_fiber_endpoint.is-empty,
 .o_fiber_tray_no_lines {
     color: #94a3b8;
+}
+
+.o_fiber_tray_line .o_fiber_endpoint.is-empty {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .o_fiber_tray_arrow {

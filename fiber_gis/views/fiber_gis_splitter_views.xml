@@ -50,8 +50,9 @@
                             <field name="input_output_id" readonly="1" invisible="not input_output_id"/>
                             <field name="input_fiber_id" domain="[('id', 'in', available_input_fiber_ids)]" invisible="input_output_id"/>
                             <field name="input_cable_id" readonly="1" invisible="not input_fiber_id"/>
-                            <field name="input_tube" readonly="1" invisible="not input_tube"/>
-                            <field name="input_tube_color" widget="fiber_color" readonly="1" invisible="not input_tube"/>
+                            <field name="input_show_tube" invisible="1"/>
+                            <field name="input_tube" readonly="1" invisible="not input_show_tube"/>
+                            <field name="input_tube_color" widget="fiber_color" readonly="1" invisible="not input_show_tube"/>
                             <field name="input_fiber_number" readonly="1" invisible="not input_fiber_id"/>
                             <field name="input_fiber_color" widget="fiber_color" readonly="1" invisible="not input_fiber_id"/>
                             <field name="nominal_loss_db"/>
@@ -82,8 +83,9 @@
                                     <field name="state"/>
                                     <field name="output_fiber_id" domain="[('id', 'in', available_fiber_ids)]" readonly="1"/>
                                     <field name="output_cable_id" readonly="1"/>
-                                    <field name="output_tube" readonly="1" optional="show"/>
-                                    <field name="output_tube_color" widget="fiber_color" readonly="1" optional="show"/>
+                                    <field name="output_show_tube" column_invisible="1"/>
+                                    <field name="output_tube" readonly="1" optional="show" invisible="not output_show_tube"/>
+                                    <field name="output_tube_color" widget="fiber_color" readonly="1" optional="show" invisible="not output_show_tube"/>
                                     <field name="output_fiber_number" readonly="1"/>
                                     <field name="output_fiber_color" widget="fiber_color" readonly="1"/>
                                     <field name="destination_label" readonly="1"/>

@@ -18,6 +18,11 @@ class FiberGisCableFiber(models.Model):
         help="Numero de tubo. El color del tubo sigue la misma secuencia estandar de 12 colores que las fibras.",
     )
     tube_color = fields.Char(string="Muestra color tubo")
+    show_tube = fields.Boolean(
+        string="Mostrar tubo",
+        compute="_compute_show_tube",
+        help="El tubo solo se muestra si el cable tiene más de un tubo.",
+    )
     color_name = fields.Char(string="Color fibra", compute="_compute_color_names", store=True)
     tube_color_name = fields.Char(string="Nombre color tubo", compute="_compute_color_names", store=True)
     attenuation_db = fields.Float(string="Atenuaci\u00f3n (dB)")
@@ -104,7 +109,7 @@ class FiberGisCableFiber(models.Model):
             text = f"{label} - {line.tray_id.display_name}"
             other = line.output_fiber_id if line.input_fiber_id == self else line.input_fiber_id
             if other:
-                identity = f"T{other.tube} " if other.tube else ""
+                identity = f"T{other.tube} " if other.show_tube else ""
                 text += f" - {other.cable_id.display_name} {identity}F{other.number}"
                 destination = node._fiber_endpoint_label(other)
                 if destination:
@@ -179,9 +184,16 @@ class FiberGisCableFiber(models.Model):
         index = ((int(number or 1) - 1) % 12) + 1
         return palette[index]
 
+    @api.depends("tube", "cable_id.tube_count")
+    def _compute_show_tube(self):
+        """Indica si se muestra el tubo de la fibra: con un solo tubo no aporta información."""
+        for fiber in self:
+            fiber.show_tube = bool(fiber.tube) and fiber.cable_id.tube_count > 1
+
     @api.depends(
         "number",
         "tube",
+        "cable_id.tube_count",
         "color_name",
         "tube_color_name",
         "state",
@@ -202,7 +214,7 @@ class FiberGisCableFiber(models.Model):
         """Calcula y actualiza «visualización nombre» a partir de los datos actuales y sus relaciones."""
         for fiber in self:
             parts = []
-            if fiber.tube:
+            if fiber.show_tube:
                 parts.append(f"{fiber._color_dot(fiber.tube_color_name)} T-{fiber.tube}")
             parts.append(f"{fiber._color_dot(fiber.color_name)} F-{fiber.number}")
             if self.env.context.get("fiber_gis_show_endpoint"):

@@ -81,7 +81,7 @@ class CableChecks(unittest.TestCase):
         fiber = self.fiber()
         origin = Record(display_name="Caja A", address="Calle Real 5")
         destination = Record(display_name="Caja B", address="Calle Sol 8", _fiber_endpoint_label=lambda other: "Caja C - Calle Luna 2")
-        other = Record(number=7, tube=2, cable_id=Record(display_name="Cable manual"))
+        other = Record(number=7, tube=2, show_tube=True, cable_id=Record(display_name="Cable manual"))
         common = dict(splitter_id=False, tray_id=Record(display_name="Bandeja 1"), employee_id=Record(name="Ana"), work_date=datetime(2026, 8, 28, 10, 30))
         fiber.tray_input_line_ids = Records([
             Record(node_id=origin, position=1, line_type="free", input_fiber_id=fiber, output_fiber_id=False, **common),
