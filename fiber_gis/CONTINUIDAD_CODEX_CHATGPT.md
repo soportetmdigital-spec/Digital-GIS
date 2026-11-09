@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
 Actualizado: 2026-11-09  
-Versión de trabajo: **19.0.4.31**  
+Versión de trabajo: **19.0.4.32**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -67,7 +67,7 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.31.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.32.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -251,3 +251,10 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.31.zip` y mantener `fib
 - Servidor: `route_geometry.py` (puro), `cable_pass.py` con `get_map_route_pass_candidates`, `_split_at_pass_nodes`, `_move_endpoint_fibers`, `_create_pass_through`, `_find_cables_crossing_nodes` y el asistente `fiber.gis.cable.pass.review`. `create_from_map` acepta `pass_node_ids`; `finalize_map_cable(cable_ids, profile_id=False)` aplica tipología opcional y registra las sangrías entre tramos.
 - Riesgo a vigilar con datos reales: la revisión puede listar muchos cruces si los cables se dibujaron como rectas largas; usar la distancia y el filtro. Cada división mueve al último tramo las operaciones del destino; revisar en la ficha si había casos especiales.
 - Punto de retorno: `19.0.4.30`.
+
+## Iteración 19.0.4.32 — conectar cable que atraviesa desde la ficha
+
+- Botón `action_open_cable_pass` en la ficha del elemento: asistente `fiber.gis.cable.pass.review` con `node_id` (búsqueda con `_find_cables_crossing_node`). Con `node_id`, basta poder editar el elemento y solo se aplican cruces de ese elemento; sin él, solo Responsable. ACL de usuario añadida al asistente.
+- Error en producción: `_sync_route_segments` usaba `.filtered` sobre un dict al borrar tramos sobrantes; corregido. Las pruebas usaban cables rectos de un solo tramo, por eso no lo detectaron: ahora hay una con cuatro tramos.
+- Quedan 20 fallos ORM anteriores (TestCabinet por `_check_manager`, geocodificación sin red, etc.).
+- Punto de retorno: `19.0.4.31`.

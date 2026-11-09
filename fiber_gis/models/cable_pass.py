@@ -243,11 +243,37 @@ class FiberGisCablePass(models.Model):
             ("node_id", "=", node.id), ("fiber_id", "in", ids),
         ]):
             port.write({"fiber_id": mapping[port.fiber_id.id]})
-        for port in self.env["fiber.gis.cabinet.port"].search([
+        # Las cabeceras son de responsables; la fibra del puerto se traslada igualmente al nuevo tramo.
+        for port in self.env["fiber.gis.cabinet.port"].sudo().search([
             ("cabinet_id.node_id", "=", node.id), ("fiber_id", "in", ids),
         ]):
             port.write({"fiber_id": mapping[port.fiber_id.id]})
         (original_fibers | new_cable.fiber_ids)._recompute_tray_state()
+
+    @api.model
+    def _find_cables_crossing_node(self, node, tolerance_m=5.0):
+        """Cables activos que pasan sobre ``node`` sin tenerlo como origen ni destino."""
+        if not node.latitude or not node.longitude:
+            return []
+        margin = tolerance_m / 100000.0 + 0.0001
+        found = []
+        cables = self.search([
+            ("state", "!=", "retired"),
+            ("from_node_id", "!=", node.id),
+            ("to_node_id", "!=", node.id),
+        ])
+        for cable in cables:
+            points = [tuple(point) for point in cable._get_route_points() if point[0] and point[1]]
+            if len(points) < 2:
+                continue
+            latitudes = [point[0] for point in points]
+            longitudes = [point[1] for point in points]
+            if not (min(latitudes) - margin <= node.latitude <= max(latitudes) + margin
+                    and min(longitudes) - margin <= node.longitude <= max(longitudes) + margin):
+                continue
+            for candidate in route_candidates(points, [(node.id, node.latitude, node.longitude)], tolerance_m):
+                found.append({"cable_id": cable.id, "node_id": node.id, "distance": candidate["distance"]})
+        return sorted(found, key=lambda item: item["distance"])
 
     @api.model
     def _find_cables_crossing_nodes(self, tolerance_m=3.0):
@@ -288,6 +314,10 @@ class FiberGisCablePassReview(models.TransientModel):
         string="Distancia máxima (m)", default=3.0, digits=(6, 1),
         help="Un elemento se considera atravesado si el recorrido del cable pasa a esta distancia o menos.",
     )
+    node_id = fields.Many2one(
+        "fiber.gis.node", string="Elemento", readonly=True,
+        help="Si se indica, solo se buscan y conectan los cables que atraviesan este elemento.",
+    )
     filter_text = fields.Char(
         string="Filtrar por nombre",
         help="Muestra solo los cruces cuyo cable o elemento contiene este texto en el nombre o la matrícula.",
@@ -303,10 +333,14 @@ class FiberGisCablePassReview(models.TransientModel):
             "res_id": self.id,
             "view_mode": "form",
             "target": "new",
-            "name": "Revisar cables de paso",
+            "name": "Conectar cable que atraviesa" if self.node_id else "Revisar cables de paso",
         }
 
     def _check_manager(self):
+        """La revisión de toda la red es de responsables; desde un elemento basta poder editarlo."""
+        if self.node_id:
+            self.node_id.check_access("write")
+            return
         if not self.env.user.has_group("fiber_gis.group_fiber_gis_manager"):
             raise ValidationError("Solo los responsables de Fiber GIS pueden revisar el cableado.")
 
@@ -315,7 +349,11 @@ class FiberGisCablePassReview(models.TransientModel):
         self.ensure_one()
         self._check_manager()
         tolerance = min(max(self.tolerance_m or 3.0, 0.5), 50.0)
-        found = self.env["fiber.gis.cable"]._find_cables_crossing_nodes(tolerance)
+        cable_model = self.env["fiber.gis.cable"]
+        if self.node_id:
+            found = cable_model._find_cables_crossing_node(self.node_id, tolerance)
+        else:
+            found = cable_model._find_cables_crossing_nodes(tolerance)
         text = (self.filter_text or "").strip().casefold()
         if text:
             cables = self.env["fiber.gis.cable"].browse(list({item["cable_id"] for item in found}))
@@ -331,7 +369,11 @@ class FiberGisCablePassReview(models.TransientModel):
                 "node_id": item["node_id"],
                 "distance_m": round(item["distance"], 1),
             }) for item in found],
-            "result_message": f"{len(found)} cruces encontrados." if found else "No hay cables que atraviesen elementos.",
+            "result_message": (
+                f"{len(found)} cruces encontrados." if found
+                else f"Ningún cable atraviesa {self.node_id.display_name}." if self.node_id
+                else "No hay cables que atraviesen elementos."
+            ),
         })
         return self._reopen()
 
@@ -340,6 +382,8 @@ class FiberGisCablePassReview(models.TransientModel):
         self.ensure_one()
         self._check_manager()
         selected = self.line_ids.filtered("leave_pass")
+        if self.node_id and selected.filtered(lambda line: line.node_id != self.node_id):
+            raise ValidationError("Desde la ficha solo se pueden conectar cables que atraviesan este elemento.")
         if not selected:
             raise ValidationError("Marca «Dejar de paso» en al menos un cruce.")
         messages, errors = [], []

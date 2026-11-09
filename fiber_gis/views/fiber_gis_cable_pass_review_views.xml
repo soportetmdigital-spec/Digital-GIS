@@ -6,15 +6,21 @@
         <field name="arch" type="xml">
             <form string="Revisar cables de paso">
                 <sheet>
-                    <p class="text-muted">
+                    <p class="text-muted" invisible="not node_id">
+                        Cables cuyo recorrido pasa por este elemento sin terminar en él. Marca «Dejar de paso» y pulsa
+                        «Dejar de paso los marcados»: el cable se divide en el elemento y sus fibras se registran de paso
+                        en la bandeja 1 (si no tiene bandejas, se crea una).
+                    </p>
+                    <p class="text-muted" invisible="node_id">
                         Busca cables cuyo recorrido pasa sobre un elemento que no es su origen ni su destino.
                         Marca «Dejar de paso» en los cruces donde el cable debe quedar de paso dentro del elemento:
                         el cable se divide en ese elemento y sus fibras se registran de paso en la bandeja 1
                         (si el elemento no tiene bandejas, se crea una).
                     </p>
                     <group>
+                        <field name="node_id" invisible="not node_id"/>
                         <field name="tolerance_m"/>
-                        <field name="filter_text" placeholder="Cable o elemento (opcional)"/>
+                        <field name="filter_text" placeholder="Cable o elemento (opcional)" invisible="node_id"/>
                     </group>
                     <field name="searched" invisible="1"/>
                     <div class="mb-3">

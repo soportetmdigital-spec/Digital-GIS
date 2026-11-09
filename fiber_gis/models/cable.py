@@ -654,7 +654,11 @@ class FiberGisCable(models.Model):
             # Remove obsolete segments (sequences that exist but shouldn't)
             obsolete_sequences = existing_sequences - new_sequences
             if obsolete_sequences:
-                existing_by_sequence.filtered(lambda s: s.sequence in obsolete_sequences).with_context(skip_cable_segment_json=True).unlink()
+                # existing_by_sequence es un dict {secuencia: tramo}; se reúnen los tramos sobrantes.
+                obsolete = segment_model.browse([
+                    existing_by_sequence[sequence].id for sequence in obsolete_sequences
+                ])
+                obsolete.with_context(skip_cable_segment_json=True).unlink()
             
             # Update route_segment_kinds canonical value
             canonical_kinds = json.dumps(kinds) if kinds else False

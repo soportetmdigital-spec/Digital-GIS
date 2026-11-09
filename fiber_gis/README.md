@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.31`
+**Versión de esta revisión:** `19.0.4.32`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -108,6 +108,8 @@ Operaciones disponibles en el asistente:
 Cada operación requiere seleccionar la bandeja donde se hará el trabajo. Una misma bandeja puede contener continuidad de paso, fibras en punta, fusiones y splitters en fibras distintas. Si se cambia el tratamiento de una fibra que ya tiene un registro, Odoo muestra una confirmación antes de reemplazarlo. Cuando una acometida parte de un splitter, se selecciona la misma bandeja donde está instalado ese splitter. Al abrir una línea de paso en el esquema, se abre la bandeja para editarla sin convertir por accidente la continuidad en una fibra en punta.
 
 Para registrar un cable que atraviesa una caja, responde **Sí, de paso** cuando el mapa pregunte al crear el cable, o dibuja un cable hasta esa caja y otro desde ella y registra la continuidad con **Sangría / cable de paso** en el **Asistente Bandejas** de la caja.
+
+Desde la ficha de un elemento con coordenadas, el botón **Conectar cable que atraviesa** lista los cables cuyo recorrido pasa por ese elemento sin terminar en él (5 m por defecto; puedes cambiar la distancia y volver a buscar). Marca **Dejar de paso** y pulsa **Dejar de paso los marcados**: el cable se divide en el elemento y sus fibras quedan de paso en la bandeja 1 (se crea si no existe). Lo puede usar cualquier usuario que pueda editar el elemento, solo para ese elemento.
 
 Para revisar el cableado ya registrado, un responsable abre **Configuración > Ajustes > Revisar cables que atraviesan elementos** (o **Configuración > Revisar cables de paso**), indica la distancia máxima y, si quiere, un texto para filtrar por cable o elemento, y pulsa **Buscar**. En cada cruce marca **Dejar de paso** y pulsa **Dejar de paso los marcados**: el cable se divide en el elemento, el cable original conserva el primer tramo y sus operaciones en el origen, las operaciones que tenía en el destino (bandejas, splitters, puertos y cabecera) pasan al último tramo, y las fibras quedan de paso en la bandeja 1 (se crea si no existe). Si un elemento no tiene dos bocas libres, ese cable no se modifica y el resultado lo indica.
 
@@ -236,9 +238,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.31`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.31`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.31.zip`. Punto de retorno: `fiber_gis_19.0.4.30.zip`.
+- Versión de referencia: `19.0.4.32`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.32`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.32.zip`. Punto de retorno: `fiber_gis_19.0.4.31.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -352,7 +354,7 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.30.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.31.zip`.
 
 ### Objetivo actual
 
@@ -360,6 +362,7 @@ Trazado más cómodo (desplazamiento en el borde) y cables de paso: al trazar y 
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.32`: botón «Conectar cable que atraviesa» en la ficha del elemento y corrección al reducir los tramos de un cable.
 - Versión `19.0.4.31`: desplazamiento en el borde al trazar, pregunta por elementos atravesados y revisión de cables de paso en Configuración.
 - Versión `19.0.4.30`: capas del mapa guardadas en `res.users.settings`.
 - Versión `19.0.4.29`: rejilla de bandejas corregida, «T» solo con varios tubos y colores por número de fibras.
@@ -508,6 +511,12 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.32
+
+- **Botón en la ficha del elemento: Conectar cable que atraviesa.** Abre el asistente de cables de paso limitado a ese elemento (distancia de 5 m por defecto) con los cables activos que pasan por él sin terminar en él. Al dejar de paso se aplica la misma división que en la revisión general: primer tramo en el cable original, operaciones del destino en el último tramo y sangría por número de fibra en la bandeja 1 (creada si falta). Lo pueden usar los usuarios de Fiber GIS que puedan editar el elemento; la revisión de toda la red sigue reservada a Responsable. La fibra de un puerto de cabecera en el destino se traslada aunque el usuario no sea Responsable.
+- **Corrección: al reducir los tramos de un cable fallaba con «'dict' object has no attribute 'filtered'».** `_sync_route_segments` borraba los tramos sobrantes tratando como registros un diccionario `{secuencia: tramo}`. Ocurría al dividir un cable con varios vértices (error en la revisión de cables de paso) y en cualquier cambio de geometría o extremos que dejara menos tramos. La operación fallida se deshacía entera, sin dejar datos a medias. Resuelve también el fallo ORM previo `TestMapCable.test_new_endpoint_keeps_manual_name`.
+- Pruebas: en `TestCablePass`, revisión de un cable de cuatro tramos y botón de la ficha usado por un técnico. Batería ORM: 20 fallos anteriores (antes 21), ninguno nuevo. Prueba en Chromium del botón con un cable de varios vértices. Punto de retorno: `19.0.4.31`.
 
 ## Cambios de la versión 19.0.4.31
 

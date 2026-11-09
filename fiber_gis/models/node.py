@@ -894,6 +894,14 @@ class FiberGisNode(models.Model):
         for node in self:
             node.tray_visual_html = node._build_tray_visual_html()
 
+    def action_open_cable_pass(self):
+        """Abre la lista de cables que atraviesan el elemento para dejarlos de paso en él."""
+        self.ensure_one()
+        if not self.latitude or not self.longitude:
+            raise UserError("El elemento necesita coordenadas para buscar los cables que lo atraviesan.")
+        review = self.env["fiber.gis.cable.pass.review"].create({"node_id": self.id, "tolerance_m": 5.0})
+        return review.action_search()
+
     def _build_tray_visual_html(self):
         """Construye «bandeja visual HTML» con los datos del modelo para mostrarlo o imprimirlo."""
         self.ensure_one()
