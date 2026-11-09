@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.32`
+**Versión de esta revisión:** `19.0.4.33`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -59,7 +59,7 @@ Los catálogos iniciales son editables. Comprueba que las tipologías necesarias
 2. Usa los filtros para mostrar sitios, elementos o cables y limitar el estado visible. Las **Capas** (Sitios, Elementos, Cables, Clientes y Acometidas) y los **Tipos de elemento** que desmarques se guardan en tu usuario: se mantienen al salir del mapa, al recargar la página y en otro navegador. Al trazar un cable se muestran todos los elementos para poder elegirlos y, al terminar, vuelven las capas que tenías. Si buscas o abres desde una ficha un elemento de una capa oculta, esa capa se muestra para enseñártelo, pero no cambia lo guardado.
 3. Busca un elemento por su nombre o matrícula. Para una dirección, introduce la calle y la población para acotar el resultado.
 4. Pulsa **Elemento** para crear un equipo. Indica nombre, matrícula, modelo, tipo de función, coordenadas y dirección. Si la geocodificación devuelve una dirección larga, corrígela en la ficha para guardar la forma corta usada por el equipo.
-5. Coloca el elemento en su ubicación real y confirma las coordenadas antes de guardar. El mapa permite abrir la ficha del elemento desde su marcador.
+5. Coloca el elemento en su ubicación real y confirma las coordenadas antes de guardar. El mapa permite abrir la ficha del elemento desde su marcador. En la ficha, **Obtener dirección** (junto a **Obtener coordenadas**) escribe la dirección breve de OpenStreetMap correspondiente a las coordenadas guardadas; sustituye la que hubiera. En los sitios rellena el campo **Dirección**. Si el servicio no devuelve dirección, se muestra un aviso y no se cambia nada.
 6. Completa en la ficha los datos técnicos, fotos, puertos, bandejas, fabricante, observaciones y trabajos que correspondan.
 
 Los iconos y colores predeterminados se toman del modelo/categoría, pero se pueden ajustar en el propio elemento cuando el perfil lo permite.
@@ -238,9 +238,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.32`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.32`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.32.zip`. Punto de retorno: `fiber_gis_19.0.4.31.zip`.
+- Versión de referencia: `19.0.4.33`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.33`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.33.zip`. Punto de retorno: `fiber_gis_19.0.4.32.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -354,7 +354,7 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.31.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.32.zip`.
 
 ### Objetivo actual
 
@@ -362,6 +362,7 @@ Trazado más cómodo (desplazamiento en el borde) y cables de paso: al trazar y 
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.33`: botón «Obtener dirección» en las fichas de elemento y sitio.
 - Versión `19.0.4.32`: botón «Conectar cable que atraviesa» en la ficha del elemento y corrección al reducir los tramos de un cable.
 - Versión `19.0.4.31`: desplazamiento en el borde al trazar, pregunta por elementos atravesados y revisión de cables de paso en Configuración.
 - Versión `19.0.4.30`: capas del mapa guardadas en `res.users.settings`.
@@ -511,6 +512,11 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.33
+
+- **Botón Obtener dirección** junto a **Obtener coordenadas** en las fichas de elemento y de sitio (visible si hay coordenadas). Usa las coordenadas guardadas y el mismo servicio que el mapa al colocar un elemento (`reverse_geocode_coordinates`: OpenStreetMap/Nominatim con caché, respetando el intervalo entre peticiones) y escribe la dirección breve en **Dirección** (`address` del elemento, `street` del sitio). Muestra una notificación con la dirección y recarga la ficha. Sin coordenadas o sin respuesta del servicio, muestra un aviso y no cambia nada.
+- Pruebas: `TestReverseGeocode` (elemento, sitio y elemento sin coordenadas, con OpenStreetMap simulado). Batería ORM: los mismos 20 fallos anteriores. Punto de retorno: `19.0.4.32`.
 
 ## Cambios de la versión 19.0.4.32
 

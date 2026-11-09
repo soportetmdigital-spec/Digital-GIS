@@ -1180,6 +1180,10 @@ class FiberGisNode(models.Model):
             )
         return True
 
+    def action_reverse_geocode(self):
+        """Rellena la dirección del elemento a partir de sus coordenadas guardadas."""
+        return self.env["fiber.gis.site"]._fill_address_from_coordinates(self, "address")
+
     def action_geocode_google_maps(self):
         """Compatibilidad con vistas antiguas: la geocodificacion ya usa OpenStreetMap."""
         return self.action_geocode_openstreetmap()

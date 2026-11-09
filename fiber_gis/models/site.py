@@ -142,6 +142,35 @@ class FiberGisSite(models.Model):
         self.ensure_one()
         return google_maps_action(self.latitude, self.longitude, self._get_geocoding_query)
 
+    def action_reverse_geocode(self):
+        """Rellena la dirección del sitio a partir de sus coordenadas guardadas."""
+        return self._fill_address_from_coordinates(self, "street")
+
+    @api.model
+    def _fill_address_from_coordinates(self, records, field_name):
+        """Escribe en ``field_name`` la dirección breve de OpenStreetMap para las coordenadas de cada registro."""
+        address = ""
+        for record in records:
+            if not record.latitude or not record.longitude:
+                raise UserError(f"{record.display_name} no tiene coordenadas guardadas.")
+            self._nominatim_wait_for_request_slot()
+            result = self.reverse_geocode_coordinates(record.latitude, record.longitude)
+            address = result.get("address") or ""
+            if not address:
+                raise UserError(result.get("warning") or "No se ha encontrado una dirección para esas coordenadas.")
+            record.write({field_name: address})
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Dirección obtenida",
+                "message": address,
+                "type": "success",
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }
+
     def action_geocode_openstreetmap(self):
         """Ejecuta la acción de usuario «geocodificación OpenStreetMap» y devuelve el resultado correspondiente a Odoo."""
         for site in self:
@@ -527,7 +556,7 @@ class FiberGisSite(models.Model):
     def _nominatim_user_agent(self, email=""):
         """Consulta «usuario agente» mediante el servicio de geocodificación Nominatim."""
         contact = f"; {email}" if email else ""
-        return f"FiberGIS/19.0.4.32 (Odoo 19{contact})"
+        return f"FiberGIS/19.0.4.33 (Odoo 19{contact})"
 
     @api.model
     def _nominatim_cache_key(self, value):

@@ -31,6 +31,7 @@
                     <button name="action_set_retired" type="object" string="Retirar"/>
                     <field name="state" widget="statusbar" statusbar_visible="planned,installed,active,maintenance,retired"/>
                     <button name="action_geocode_openstreetmap" type="object" string="Obtener coordenadas" class="btn-secondary"/>
+                    <button name="action_reverse_geocode" type="object" string="Obtener dirección" class="btn-secondary" invisible="not latitude or not longitude"/>
                     <button name="action_open_google_maps" type="object" string="Abrir en Google Maps" class="btn-primary"/>
                 </header>
                 <sheet>

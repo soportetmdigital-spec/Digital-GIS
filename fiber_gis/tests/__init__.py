@@ -11,3 +11,4 @@ from . import test_cable_tray_wizard
 from . import test_backup_restore
 from . import test_map_layers
 from . import test_cable_pass
+from . import test_reverse_geocode
