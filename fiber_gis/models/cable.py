@@ -6,6 +6,8 @@ import math
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
+from .route_geometry import geometry_json
+
 
 # Color por defecto de un cable dibujado en el mapa según el número total de fibras de su tipología.
 MAP_CABLE_COLOR_BY_FIBERS = {
@@ -227,8 +229,13 @@ class FiberGisCable(models.Model):
         profile_id=False,
         from_boca=False,
         to_boca=False,
+        pass_node_ids=None,
     ):
-        """Crea un cable a partir de los extremos y el recorrido recibidos desde la herramienta de dibujo del mapa."""
+        """Crea un cable a partir de los extremos y el recorrido recibidos desde la herramienta de dibujo del mapa.
+
+        Si se indican elementos de paso, el cable se crea en tramos que terminan y empiezan en cada uno;
+        la sangría entre tramos se registra al finalizar con :meth:`finalize_map_cable`.
+        """
         from_node = self.env["fiber.gis.node"].browse(int(from_node_id or 0)).exists()
         to_node = self.env["fiber.gis.node"].browse(int(to_node_id or 0)).exists()
         if not from_node or not to_node:
@@ -299,15 +306,40 @@ class FiberGisCable(models.Model):
         }
         if plan:
             values["deployment_plan_id"] = plan.id
-        cable = self.create(values)
+        pass_nodes = self.env["fiber.gis.node"].browse([int(node_id) for node_id in pass_node_ids or []]).exists()
+        if not pass_nodes:
+            cables = self.create(values)
+        else:
+            route = [tuple(point) for point in points]
+            located = self._locate_pass_nodes(route, pass_nodes, (from_node | to_node).ids)
+            pieces = self._split_route_at(route, [route_kind] * (len(route) - 1), located)
+            stop_nodes = self.env["fiber.gis.node"].browse([item["key"] for item in located])
+            self._lock_endpoint_nodes(stop_nodes)
+            bocas = {node.id: self._pass_bocas(node) for node in stop_nodes}
+            stops = [from_node] + list(stop_nodes) + [to_node]
+            cables = self.browse()
+            for index, (piece_points, piece_kinds) in enumerate(pieces):
+                start, end = stops[index], stops[index + 1]
+                cables |= self.create(dict(
+                    values,
+                    from_node_id=start.id,
+                    to_node_id=end.id,
+                    from_boca=int(from_boca) if start == from_node else bocas[start.id][1],
+                    to_boca=int(to_boca) if end == to_node else bocas[end.id][0],
+                    geometry_geojson=geometry_json(piece_points),
+                    route_segment_kinds=json.dumps(piece_kinds),
+                ))
+        cable = cables[:1]
         return {
             "id": cable.id,
+            "cable_ids": cables.ids,
             "name": cable.display_name,
-            "length_m": cable.length_m,
+            "length_m": sum(cables.mapped("length_m")),
             "deployment_plan_id": cable.deployment_plan_id.id or False,
             "type_id": cable.type_id.id,
             "from_boca": cable.from_boca,
-            "to_boca": cable.to_boca,
+            "to_boca": cables[-1:].to_boca,
+            "pass_nodes": stop_nodes.mapped("display_name") if pass_nodes else [],
         }
 
     @api.model
@@ -316,48 +348,69 @@ class FiberGisCable(models.Model):
         return MAP_CABLE_COLOR_BY_FIBERS.get(profile.total_fiber_count, DEFAULT_CABLE_COLOR)
 
     @api.model
-    def finalize_map_cable(self, cable_id, profile_id):
-        """Aplica la tipología elegida al terminar de dibujar un cable en el mapa."""
+    def finalize_map_cable(self, cable_ids, profile_id=False):
+        """Termina un cable dibujado en el mapa: aplica la tipología y registra los cables de paso.
+
+        ``cable_ids`` son los tramos en orden (un id o una lista). Sin ``profile_id`` se conserva la
+        tipología actual. Entre cada par de tramos se registra la sangría en la bandeja 1 del elemento.
+        """
+        if not isinstance(cable_ids, (list, tuple)):
+            cable_ids = [cable_ids]
         try:
-            cable_id = int(cable_id or 0)
+            ordered_ids = [int(cable_id) for cable_id in cable_ids]
             profile_id = int(profile_id or 0)
         except (TypeError, ValueError):
             raise ValidationError("Selecciona una tipología de cable válida.")
-        cable = self.browse(cable_id).exists()
-        if not cable:
+        cables = self.browse(ordered_ids).exists()
+        if not ordered_ids or len(cables) != len(ordered_ids) or len(set(ordered_ids)) != len(ordered_ids):
             raise ValidationError("El cable dibujado ya no existe.")
-        profile = self.env["fiber.gis.cable.profile"].browse(profile_id).exists()
-        if not profile or not profile.active:
-            raise ValidationError("Selecciona una tipología de cable activa.")
-        profile.check_access("read")
-        cable.check_access("write")
-        if cable.state != "planned":
-            raise ValidationError("Solo se puede cambiar la tipología de un cable planificado.")
+        for cable in cables:
+            cable.check_access("write")
+        for incoming, outgoing in zip(cables, cables[1:]):
+            if incoming.to_node_id != outgoing.from_node_id:
+                raise ValidationError("Los tramos del cable no son continuos.")
+        self._lock_endpoint_nodes(cables.mapped("from_node_id") | cables.mapped("to_node_id"))
 
-        self._lock_endpoint_nodes(cable.from_node_id | cable.to_node_id)
-        fibers = cable.fiber_ids
-        used_fibers = fibers.filtered(lambda fiber: (
-            fiber.state != "free"
-            or fiber.tray_input_line_ids
-            or fiber.tray_output_line_ids
-            or fiber.splitter_input_ids
-            or fiber.splitter_output_ids
-            or fiber.port_ids
-        ))
-        if used_fibers:
-            raise ValidationError("No se puede cambiar la tipología porque ya se han usado fibras de este cable.")
+        profile = self.env["fiber.gis.cable.profile"]
+        if profile_id:
+            profile = profile.browse(profile_id).exists()
+            if not profile or not profile.active:
+                raise ValidationError("Selecciona una tipología de cable activa.")
+            profile.check_access("read")
+            if cables.filtered(lambda cable: cable.state != "planned"):
+                raise ValidationError("Solo se puede cambiar la tipología de un cable planificado.")
+            fibers = cables.mapped("fiber_ids")
+            used_fibers = fibers.filtered(lambda fiber: (
+                fiber.state != "free"
+                or fiber.tray_input_line_ids
+                or fiber.tray_output_line_ids
+                or fiber.splitter_input_ids
+                or fiber.splitter_output_ids
+                or fiber.port_ids
+            ))
+            if used_fibers:
+                raise ValidationError("No se puede cambiar la tipología porque ya se han usado fibras de este cable.")
+            # El cable recién dibujado aún no tiene trabajos de fibra; se regeneran para
+            # que el número y los tubos correspondan a la tipología elegida al finalizar.
+            fibers.unlink()
+            cables.write({
+                "profile_id": profile.id,
+                "tube_count": profile.tube_count,
+                "fiber_count": profile.fiber_count,
+                "color": self._map_cable_color(profile),
+            })
+            cables.action_generate_fibers()
 
-        # El cable recién dibujado aún no tiene trabajos de fibra; se regeneran para
-        # que el número y los tubos correspondan a la tipología elegida al finalizar.
-        fibers.unlink()
-        cable.write({
-            "profile_id": profile.id,
-            "tube_count": profile.tube_count,
-            "fiber_count": profile.fiber_count,
-            "color": self._map_cable_color(profile),
-        })
-        cable.action_generate_fibers()
-        return {"cable_id": cable.id, "profile": profile.display_name}
+        pass_results = [
+            self._create_pass_through(incoming, outgoing, incoming.to_node_id)
+            for incoming, outgoing in zip(cables, cables[1:])
+        ]
+        return {
+            "cable_id": cables[0].id,
+            "cable_ids": cables.ids,
+            "profile": (profile or cables[0].profile_id).display_name or "",
+            "pass_results": pass_results,
+        }
 
     @api.model
     def _lock_endpoint_nodes(self, nodes):

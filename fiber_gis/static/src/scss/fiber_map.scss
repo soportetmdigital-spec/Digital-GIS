@@ -1712,3 +1712,24 @@
 .o_fiber_preview_token.is-empty {
     color: #94a3b8;
 }
+
+.o_fiber_gis_pass_list {
+    display: grid;
+    gap: 6px;
+    max-height: 50vh;
+    margin-bottom: 12px;
+    overflow-y: auto;
+}
+
+.o_fiber_gis_pass_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.o_fiber_gis_pass_name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

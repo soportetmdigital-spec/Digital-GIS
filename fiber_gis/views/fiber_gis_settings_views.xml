@@ -25,6 +25,13 @@
                             string="Actualizar colores CTO"
                             class="btn-secondary"/>
                     </group>
+                    <group string="Cableado">
+                        <button
+                            name="%(fiber_gis.action_fiber_gis_cable_pass_review)d"
+                            type="action"
+                            string="Revisar cables que atraviesan elementos"
+                            class="btn-secondary"/>
+                    </group>
                     <group string="Fibras">
                         <button
                             name="action_recompute_fiber_states"

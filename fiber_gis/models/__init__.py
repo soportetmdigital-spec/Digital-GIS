@@ -9,6 +9,7 @@ from . import node_photo
 from . import splice_document
 from . import port
 from . import cable
+from . import cable_pass
 from . import cable_profile
 from . import cable_tray_wizard
 from . import fiber

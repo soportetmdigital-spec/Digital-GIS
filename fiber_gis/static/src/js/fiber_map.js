@@ -30,6 +30,12 @@ const SEARCH_IDLE_MS = 1000;
 const MAP_HISTORY_LIMIT = 30;
 const CAMERA_STORAGE_KEY = "fiber_gis.map.camera";
 const LAYER_SAVE_IDLE_MS = 400;
+// Al trazar un cable, el mapa se desplaza solo cuando el puntero se acerca al borde.
+const DRAFT_EDGE_MARGIN_PX = 48;
+const DRAFT_EDGE_SPEED_PX = 14;
+const DRAFT_EDGE_COMMIT_MS = 450;
+// Un elemento se considera atravesado si el trazado pasa a esta distancia en pantalla.
+const DRAFT_PASS_TOLERANCE_PX = 12;
 // Capas que se recuerdan por usuario: clave guardada en el servidor -> campo de estado del mapa.
 const SAVED_MAP_LAYERS = {
     sites: "showSitesLayer",
@@ -107,7 +113,8 @@ export class FiberGisMap extends Component {
             cableDraftToBocas: [],
             cableDraftRouteKind: "underground",
             cableDraftTypeId: false,
-            cableDraftCableId: false,
+            cableDraftCableIds: [],
+            cableDraftPassCandidates: [],
             cableDraftFinalProfileId: false,
             showCableDraftFinalize: false,
             cableDraftFinalizing: false,
@@ -150,6 +157,7 @@ export class FiberGisMap extends Component {
                 this._clearSceneTransformAfterPatch = false;
                 this.clearSceneTransform();
             }
+            this._edgePanWaitingPatch = false;
             this.updateZoomIndicator();
         });
 
@@ -169,6 +177,9 @@ export class FiberGisMap extends Component {
             }
             if (this._dragAnimationFrame) {
                 cancelAnimationFrame(this._dragAnimationFrame);
+            }
+            if (this._edgePanFrame) {
+                cancelAnimationFrame(this._edgePanFrame);
             }
             this._catastroFrameRequestId = (this._catastroFrameRequestId || 0) + 1;
             this._catastroPreloadImage = null;
@@ -2111,7 +2122,8 @@ export class FiberGisMap extends Component {
             return;
         }
         this.state.cableDraftMode = true;
-        this.state.cableDraftCableId = false;
+        this.state.cableDraftCableIds = [];
+        this.state.cableDraftPassCandidates = [];
         this.state.showCableDraftFinalize = false;
         this.state.cableDraftFromNodeId = null;
         this.state.cableDraftViaPoints = [];
@@ -2197,7 +2209,9 @@ export class FiberGisMap extends Component {
         this.state.cableDraftToBocas = [];
         this._draftPreviewCursor = null;
         this.state.cableDraftSaving = false;
-        this.state.cableDraftCableId = false;
+        this.state.cableDraftCableIds = [];
+        this.state.cableDraftPassCandidates = [];
+        this.stopDraftEdgePan();
         this.state.cableDraftFinalProfileId = false;
         this.state.showCableDraftFinalize = false;
         this.state.cableDraftFinalizing = false;
@@ -2207,10 +2221,12 @@ export class FiberGisMap extends Component {
     }
 
     finishCableDraftTracing() {
-        if (!this.state.cableDraftCableId) {
+        if (!this.state.cableDraftCableIds.length) {
             this.cancelCableDrawing();
             return;
         }
+        this.stopDraftEdgePan();
+        this.state.cableDraftPassCandidates = [];
         this._cableDraftBocasRequestId = (this._cableDraftBocasRequestId || 0) + 1;
         this.state.cableDraftMode = false;
         this.restoreLayersAfterDrawing();
@@ -2229,19 +2245,14 @@ export class FiberGisMap extends Component {
     }
 
     cancelCableDraftFinalization() {
-        this.state.showCableDraftFinalize = false;
-        this.state.cableDraftCableId = false;
-        this.state.cableDraftFinalProfileId = false;
-        this.notification.add(
-            "Se conserva el cable con la tipología actual. Puedes cambiarla desde su ficha.",
-            { type: "warning" }
-        );
+        // Se conserva la tipología; si hay tramos de paso, se registra igualmente su sangría.
+        this.finalizeCableDraft(false);
     }
 
-    async finalizeCableDraft() {
-        const profileId = Number(this.state.cableDraftFinalProfileId);
-        const cableId = this.state.cableDraftCableId;
-        if (!profileId || !cableId || this.state.cableDraftFinalizing) {
+    async finalizeCableDraft(applyProfile = true) {
+        const profileId = applyProfile ? Number(this.state.cableDraftFinalProfileId) : false;
+        const cableIds = [...this.state.cableDraftCableIds];
+        if ((applyProfile && !profileId) || !cableIds.length || this.state.cableDraftFinalizing) {
             return;
         }
         this.state.cableDraftFinalizing = true;
@@ -2249,26 +2260,61 @@ export class FiberGisMap extends Component {
             const result = await this.orm.call(
                 "fiber.gis.cable",
                 "finalize_map_cable",
-                [cableId, profileId]
+                [cableIds, profileId]
             );
             this.state.showCableDraftFinalize = false;
-            this.state.cableDraftCableId = false;
+            this.state.cableDraftCableIds = [];
             this.state.cableDraftFinalProfileId = false;
             this.state.cableDraftFinalizing = false;
             await this.loadData();
-            const cable = this.state.cables.find((item) => item.id === cableId);
+            const cable = this.state.cables.find((item) => item.id === cableIds[0]);
             if (cable) {
                 this.selectCable(cable);
             }
-            this.notification.add(`Cable creado con tipología ${result.profile}.`, { type: "success" });
+            const pieces = cableIds.length > 1 ? ` en ${cableIds.length} tramos` : "";
+            this.notification.add(
+                applyProfile
+                    ? `Cable creado${pieces} con tipología ${result.profile}.`
+                    : `Cable creado${pieces}; se conserva la tipología ${result.profile}.`,
+                { type: applyProfile ? "success" : "warning" }
+            );
+            for (const pass of result.pass_results || []) {
+                if (pass.note) {
+                    this.notification.add(`${pass.node}: ${pass.note}`, { type: "warning" });
+                } else {
+                    this.notification.add(
+                        `Cable de paso en ${pass.node}: ${pass.created} fibras en ${pass.tray}.` +
+                        (pass.skipped ? ` ${pass.skipped} fibras ocupadas se dejaron sin cambiar.` : ""),
+                        { type: "info" }
+                    );
+                }
+            }
             this.cancelCableDrawing(false);
         } catch (error) {
             this.state.cableDraftFinalizing = false;
             this.notification.add(
-                error?.data?.message || "No se ha podido aplicar la tipología al cable.",
+                error?.data?.message || "No se ha podido terminar el cable.",
                 { type: "danger" }
             );
         }
+    }
+
+    draftPassToleranceMeters() {
+        // Tolerancia en pantalla convertida a metros con la escala actual (proyección Mercator).
+        const node = this.cableDraftFromNode;
+        const latitude = node?.latitude || DEFAULT_CENTER.latitude;
+        const metersPerPixel = Math.cos((latitude * Math.PI) / 180) / (this.state.scale || 1);
+        return Math.min(Math.max(DRAFT_PASS_TOLERANCE_PX * metersPerPixel, 0.5), 50);
+    }
+
+    setDraftPassAnswer(nodeId, leavePass) {
+        this.state.cableDraftPassCandidates = this.state.cableDraftPassCandidates.map((item) => (
+            item.id === nodeId ? { ...item, leavePass } : item
+        ));
+    }
+
+    cancelDraftPassQuestion() {
+        this.state.cableDraftPassCandidates = [];
     }
 
     undoCableDraftPoint() {
@@ -2352,7 +2398,7 @@ export class FiberGisMap extends Component {
         this.state.cableDraftToBocas = [];
     }
 
-    async saveCableDraft() {
+    async saveCableDraft(passAnswered = false) {
         const node = this.cableDraftToNode;
         const fromBoca = Number(this.state.cableDraftFromBoca);
         const toBoca = Number(this.state.cableDraftToBoca);
@@ -2360,22 +2406,40 @@ export class FiberGisMap extends Component {
             return;
         }
         this.state.cableDraftSaving = true;
+        const viaPoints = this.state.cableDraftViaPoints.map((point) => [point[0], point[1]]);
         try {
+            if (!passAnswered) {
+                // Antes de crear el cable se pregunta por cada elemento sobre el que pasa el trazado.
+                const candidates = await this.orm.call(
+                    "fiber.gis.cable",
+                    "get_map_route_pass_candidates",
+                    [this.state.cableDraftFromNodeId, node.id, viaPoints, this.draftPassToleranceMeters()]
+                );
+                if (candidates.length) {
+                    this.state.cableDraftPassCandidates = candidates.map((item) => ({ ...item, leavePass: false }));
+                    this.state.cableDraftSaving = false;
+                    return;
+                }
+            }
+            const passNodeIds = this.state.cableDraftPassCandidates
+                .filter((item) => item.leavePass)
+                .map((item) => item.id);
             const result = await this.orm.call(
                 "fiber.gis.cable",
                 "create_from_map",
                 [
                     this.state.cableDraftFromNodeId,
                     node.id,
-                    this.state.cableDraftViaPoints.map((point) => [point[0], point[1]]),
+                    viaPoints,
                     this.state.plan?.id || false,
                     this.state.cableDraftRouteKind,
                     Number(this.state.cableDraftTypeId) || false,
                     fromBoca,
                     toBoca,
+                    passNodeIds,
                 ]
             );
-            this.state.cableDraftCableId = result.id;
+            this.state.cableDraftCableIds = result.cable_ids || [result.id];
             await this.loadData();
             this.finishCableDraftTracing();
         } catch (error) {
@@ -3236,6 +3300,71 @@ export class FiberGisMap extends Component {
         this.svg.el?.querySelector("[data-cable-draft-path]")?.setAttribute("d", path);
     }
 
+    updateDraftEdgePan(ev) {
+        // Cerca del borde, el mapa avanza en esa dirección para alcanzar zonas fuera de la vista.
+        const rect = this.svg.el?.getBoundingClientRect();
+        if (!rect || this.state.cableDraftToNodeId || this.state.cableDraftPassCandidates.length) {
+            this.stopDraftEdgePan();
+            return;
+        }
+        const x = ev.clientX - rect.left;
+        const y = ev.clientY - rect.top;
+        if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+            this.stopDraftEdgePan();
+            return;
+        }
+        const strength = (distance) => Math.max(0, Math.min(1, (DRAFT_EDGE_MARGIN_PX - distance) / DRAFT_EDGE_MARGIN_PX));
+        const dx = strength(x) - strength(rect.width - x);
+        const dy = strength(y) - strength(rect.height - y);
+        if (!dx && !dy) {
+            this.stopDraftEdgePan();
+            return;
+        }
+        this._edgePan = { dx, dy, clientX: ev.clientX, clientY: ev.clientY };
+        if (!this._edgePanFrame) {
+            this._edgePanLastCommit = performance.now();
+            this._edgePanFrame = requestAnimationFrame((time) => this.stepDraftEdgePan(time));
+        }
+    }
+
+    stepDraftEdgePan(time) {
+        this._edgePanFrame = null;
+        const pan = this._edgePan;
+        if (!pan || !this.state.cableDraftMode) {
+            this.stopDraftEdgePan();
+            return;
+        }
+        if (!this._edgePanWaitingPatch) {
+            const camera = this.beginInteractionCamera();
+            camera.offsetX += pan.dx * DRAFT_EDGE_SPEED_PX;
+            camera.offsetY += pan.dy * DRAFT_EDGE_SPEED_PX;
+            this.applySceneCamera(camera);
+            if (this.state.cableDraftFromNodeId) {
+                this.applyCableDraftPreview(pan.clientX, pan.clientY);
+            }
+            if (time - this._edgePanLastCommit > DRAFT_EDGE_COMMIT_MS) {
+                // Cada poco se redibuja el mapa para mostrar los elementos que entran en la vista.
+                this._edgePanLastCommit = time;
+                this._edgePanWaitingPatch = true;
+                this.commitInteractionCamera();
+                this.scheduleSaveCamera();
+            }
+        }
+        this._edgePanFrame = requestAnimationFrame((next) => this.stepDraftEdgePan(next));
+    }
+
+    stopDraftEdgePan() {
+        const wasPanning = Boolean(this._edgePan);
+        this._edgePan = null;
+        if (this._edgePanFrame) {
+            cancelAnimationFrame(this._edgePanFrame);
+            this._edgePanFrame = null;
+        }
+        if (wasPanning) {
+            this.scheduleInteractionCameraCommit(0);
+        }
+    }
+
     queuePointerPreview(kind, ev) {
         this._pendingPointerPreview = { kind, clientX: ev.clientX, clientY: ev.clientY };
         if (this._dragAnimationFrame) {
@@ -3374,8 +3503,11 @@ export class FiberGisMap extends Component {
     }
 
     onPointerMove(ev) {
-        if (this.state.cableDraftMode && this.state.cableDraftFromNodeId && this.state.bounds) {
-            this.queuePointerPreview("draft", ev);
+        if (this.state.cableDraftMode && this.state.bounds) {
+            if (this.state.cableDraftFromNodeId) {
+                this.queuePointerPreview("draft", ev);
+            }
+            this.updateDraftEdgePan(ev);
             return;
         }
         if (this._panning && this._panPointerStart) {

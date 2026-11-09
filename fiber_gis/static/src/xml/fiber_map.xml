@@ -210,13 +210,13 @@
                         </div>
                         <div class="o_fiber_gis_boca_actions">
                             <button class="btn btn-light" t-att-disabled="state.cableDraftFinalizing" t-on-click="cancelCableDraftFinalization">Dejar tipología actual</button>
-                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFinalProfileId || state.cableDraftFinalizing" t-on-click="finalizeCableDraft">
+                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFinalProfileId || state.cableDraftFinalizing" t-on-click="() => this.finalizeCableDraft(true)">
                                 <t t-esc="state.cableDraftFinalizing ? 'Finalizando...' : 'Aplicar tipología y finalizar'"/>
                             </button>
                         </div>
                     </section>
                 </div>
-                <div t-if="state.cableDraftToNodeId" class="o_fiber_gis_boca_dialog_backdrop">
+                <div t-if="state.cableDraftToNodeId &amp;&amp; !state.cableDraftPassCandidates.length" class="o_fiber_gis_boca_dialog_backdrop">
                     <section class="o_fiber_gis_boca_dialog" role="dialog" aria-modal="true" aria-labelledby="fiber-gis-boca-title">
                         <h3 id="fiber-gis-boca-title">Bocas del cable</h3>
                         <p>Selecciona la boca de salida y la boca de entrada para este cable.</p>
@@ -242,7 +242,30 @@
                         </div>
                         <div class="o_fiber_gis_boca_actions">
                             <button class="btn btn-light" t-on-click="cancelCableDraftDestination">Volver al mapa</button>
-                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="saveCableDraft">
+                            <button class="btn btn-primary" t-att-disabled="!state.cableDraftFromBoca || !state.cableDraftToBoca || state.cableDraftSaving" t-on-click="() => this.saveCableDraft()">
+                                <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear cable'"/>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+                <div t-if="state.cableDraftPassCandidates.length" class="o_fiber_gis_boca_dialog_backdrop">
+                    <section class="o_fiber_gis_boca_dialog" role="dialog" aria-modal="true" aria-labelledby="fiber-gis-pass-title">
+                        <h3 id="fiber-gis-pass-title">El cable pasa por otros elementos</h3>
+                        <p>¿Hay que dejar el cable de paso dentro de estos elementos? Si respondes Sí, el cable se divide en el elemento y sus fibras quedan de paso en la bandeja 1 (si no tiene bandejas, se crea una).</p>
+                        <div class="o_fiber_gis_pass_list">
+                            <t t-foreach="state.cableDraftPassCandidates" t-as="candidate" t-key="candidate.id">
+                                <div class="o_fiber_gis_pass_row">
+                                    <span class="o_fiber_gis_pass_name" t-esc="candidate.name"/>
+                                    <div class="btn-group btn-group-sm" role="group" t-att-aria-label="'Dejar de paso en ' + candidate.name">
+                                        <button type="button" t-att-class="'btn ' + (candidate.leavePass ? 'btn-primary' : 'btn-light')" t-on-click="() => this.setDraftPassAnswer(candidate.id, true)">Sí, de paso</button>
+                                        <button type="button" t-att-class="'btn ' + (candidate.leavePass ? 'btn-light' : 'btn-primary')" t-on-click="() => this.setDraftPassAnswer(candidate.id, false)">No</button>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                        <div class="o_fiber_gis_boca_actions">
+                            <button class="btn btn-light" t-att-disabled="state.cableDraftSaving" t-on-click="cancelDraftPassQuestion">Volver</button>
+                            <button class="btn btn-primary" t-att-disabled="state.cableDraftSaving" t-on-click="() => this.saveCableDraft(true)">
                                 <t t-esc="state.cableDraftSaving ? 'Creando cable...' : 'Crear cable'"/>
                             </button>
                         </div>
@@ -342,6 +365,7 @@
                     t-on-dblclick="onMapDoubleClick"
                     t-on-pointerover="onMapPointerOver"
                     t-on-pointerout="onMapPointerOut"
+                    t-on-pointerleave="stopDraftEdgePan"
                     t-on-contextmenu="onMapContextMenu"
                     t-on-wheel.prevent="onWheel">
                     <g t-ref="mapScene" class="o_fiber_gis_scene">

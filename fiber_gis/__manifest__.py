@@ -1,7 +1,7 @@
 {
     "name": "Fiber GIS - Red de Fibra",
     "summary": "Gestion tipo GIS de red de fibra optica en Odoo Community",
-    "version": "19.0.4.30",
+    "version": "19.0.4.31",
     "category": "Operations/Infrastructure",
     "author": "TM Digital Granada",
     "license": "LGPL-3",
@@ -29,6 +29,7 @@
         "views/fiber_gis_splitter_views.xml",
         "views/fiber_gis_link_views.xml",
         "views/fiber_gis_type_views.xml",
+        "views/fiber_gis_cable_pass_review_views.xml",
         "views/fiber_gis_settings_views.xml",
         "reports/fiber_trace_report.xml",
         "reports/fiber_deployment_plan_report.xml",

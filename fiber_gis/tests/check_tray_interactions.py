@@ -285,7 +285,10 @@ class TrayInteractionChecks(unittest.TestCase):
         # vuelve a poder desplazarse antes de dibujar el siguiente.
         map_template = etree.parse(str(ROOT / "static/src/xml/fiber_map.xml"))
         template_text = (ROOT / "static/src/xml/fiber_map.xml").read_text(encoding="utf-8")
-        self.assertFalse(map_template.xpath("//button[contains(@t-on-click, 'saveCableDraft(true)')]"))
+        # saveCableDraft(true) solo confirma las respuestas del diálogo de elementos de paso.
+        answered = map_template.xpath("//button[contains(@t-on-click, 'saveCableDraft(true)')]")
+        self.assertEqual(len(answered), 1)
+        self.assertTrue(answered[0].xpath("ancestor::section[@aria-labelledby='fiber-gis-pass-title']"))
         self.assertNotIn("Crear y seguir trazando", template_text)
         self.assertFalse(map_template.xpath("//div[@class='o_fiber_gis_cable_draft_panel']//select"))
         self.assertTrue(map_template.xpath("//select[@id='fiber_gis_cable_final_profile']"))
@@ -293,10 +296,10 @@ class TrayInteractionChecks(unittest.TestCase):
         cable_source = (ROOT / "models/cable.py").read_text(encoding="utf-8")
         self.assertNotIn("cableDraftChainIds", map_source)
         self.assertIn('"finalize_map_cable"', map_source)
-        self.assertIn("async saveCableDraft() {", map_source)
+        self.assertIn("async saveCableDraft(passAnswered = false) {", map_source)
         self.assertNotIn("previous_cable_id", cable_source)
         self.assertNotIn("_create_map_default_sangria", cable_source)
-        self.assertIn("def finalize_map_cable(self, cable_id, profile_id)", cable_source)
+        self.assertIn("def finalize_map_cable(self, cable_ids, profile_id=False)", cable_source)
 
     def test_python310_and_xml_syntax(self):
         for path in ROOT.rglob("*.py"):

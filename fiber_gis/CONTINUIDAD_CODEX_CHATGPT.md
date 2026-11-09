@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
-Actualizado: 2026-10-29  
-Versión de trabajo: **19.0.4.30**  
+Actualizado: 2026-11-09  
+Versión de trabajo: **19.0.4.31**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -63,11 +63,11 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 - El tubo de una fibra («T1» y su color) solo se muestra si el cable tiene más de un tubo: usar `fiber.show_tube` en cualquier vista o HTML nuevo que muestre fibras.
 - Color por defecto de cables dibujados en el mapa según fibras de la tipología (`MAP_CABLE_COLOR_BY_FIBERS` en `models/cable.py`): 6 celeste, 12 rojo, 16 violeta, 24 marrón, 48 verde, 72 verde oscuro, 80 azul, 96 rosa, 128 naranja, 288 negro.
 - Las capas y tipos de elemento del mapa se guardan por usuario en `res.users.settings.fiber_gis_map_layers` (`models/user_settings.py`). Cualquier código que fuerce capas visibles debe ser temporal y no llamar a `scheduleLayerPreferencesSave()`; solo los check del usuario guardan.
-- En el mapa se dibuja un cable cada vez. «Crear y seguir trazando» se retiró en 19.0.4.28 a petición de los técnicos (no se podía desplazar el mapa al llegar al borde); no reintroducir el trazado encadenado. La continuidad entre cables se registra con Sangría en Gestión de bandejas.
+- En el mapa se dibuja un cable cada vez. «Crear y seguir trazando» se retiró en 19.0.4.28; desde 19.0.4.31 el mapa avanza al acercar el puntero al borde mientras se traza. Si el trazado pasa sobre elementos, se pregunta por cada uno y con Sí el cable se crea en tramos con sangría en la bandeja 1 (creada si falta). No reintroducir el encadenado manual de cajas.
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.30.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.31.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -243,3 +243,11 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.30.zip` y mantener `fib
 - `res.users.settings` (base de Odoo 19, un registro por usuario, `_find_or_create_for_user`) con campo Json `fiber_gis_map_layers` y métodos `get_fiber_gis_map_layers` / `set_fiber_gis_map_layers`, que solo actúan sobre el usuario actual.
 - El mapa aplica las capas guardadas en la primera carga, guarda con retardo de 400 ms al cambiar un check (y al desmontar si hay un guardado pendiente) y recupera las capas tras trazar un cable.
 - Punto de retorno: `19.0.4.29`.
+
+## Iteración 19.0.4.31 — borde del mapa y cables de paso
+
+- Petición: al trazar, el mapa debe moverse en los bordes; si el cable pasa por un elemento, preguntar si queda de paso (fibras de paso en la bandeja 1, que se crea si falta); y un botón en Configuración para revisar el cableado existente con la misma pregunta.
+- Mapa: `updateDraftEdgePan`/`stepDraftEdgePan`/`stopDraftEdgePan` (vista previa con `applySceneCamera` y redibujado cada 450 ms; `_edgePanWaitingPatch` evita saltos hasta que Owl aplica el redibujado). Diálogo `cableDraftPassCandidates` antes de crear; `saveCableDraft(true)` confirma las respuestas.
+- Servidor: `route_geometry.py` (puro), `cable_pass.py` con `get_map_route_pass_candidates`, `_split_at_pass_nodes`, `_move_endpoint_fibers`, `_create_pass_through`, `_find_cables_crossing_nodes` y el asistente `fiber.gis.cable.pass.review`. `create_from_map` acepta `pass_node_ids`; `finalize_map_cable(cable_ids, profile_id=False)` aplica tipología opcional y registra las sangrías entre tramos.
+- Riesgo a vigilar con datos reales: la revisión puede listar muchos cruces si los cables se dibujaron como rectas largas; usar la distancia y el filtro. Cada división mueve al último tramo las operaciones del destino; revisar en la ficha si había casos especiales.
+- Punto de retorno: `19.0.4.30`.
