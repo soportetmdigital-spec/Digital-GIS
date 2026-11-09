@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
 Actualizado: 2026-11-09  
-Versión de trabajo: **19.0.4.33**  
+Versión de trabajo: **19.0.4.34**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -67,7 +67,7 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.33.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.34.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -264,3 +264,8 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.33.zip` y mantener `fib
 - `action_reverse_geocode` en elemento y sitio; lógica común `fiber.gis.site._fill_address_from_coordinates(records, field_name)` sobre `reverse_geocode_coordinates`. Devuelve `display_notification` con `next` `soft_reload` (acción cliente de Odoo 19) para recargar la ficha.
 - En este entorno Nominatim no es accesible por la red; la prueba de navegador solo verifica el aviso. Probar la respuesta real en el servidor.
 - Punto de retorno: `19.0.4.32`.
+
+## Iteración 19.0.4.34 — teclado en el mapa
+
+- `onKeyDown` con `useExternalListener(window, "keydown", …)`: flechas y + / - con la vista previa por transformación (`beginInteractionCamera`/`previewZoomAt`) y redibujado diferido. `zoom(delta)` de los botones pasa a usar `zoomAt` en el centro.
+- Punto de retorno: `19.0.4.33`.

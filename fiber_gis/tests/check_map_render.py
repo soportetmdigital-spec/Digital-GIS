@@ -52,6 +52,16 @@ class MapRenderChecks(unittest.TestCase):
         self.assertIn("this.showLayersForDrawing()", JS)
         self.assertEqual(JS.count("this.restoreLayersAfterDrawing();"), 3)
 
+    def test_keyboard_pans_and_zooms_the_map(self):
+        self.assertIn('useExternalListener(window, "keydown", this.onKeyDown.bind(this))', JS)
+        body = method_body("onKeyDown")
+        for key in ("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"):
+            self.assertIn(key, JS)
+        # No interfiere con campos de texto, diálogos ni con el zoom del navegador (Ctrl/Cmd).
+        self.assertIn("input, textarea, select", body)
+        self.assertIn("ev.ctrlKey || ev.metaKey || ev.altKey", body)
+        self.assertIn("this.scheduleInteractionCameraCommit(KEYBOARD_COMMIT_IDLE_MS)", body)
+
 
 if __name__ == "__main__":
     unittest.main()

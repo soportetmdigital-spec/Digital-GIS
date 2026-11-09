@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.33`
+**Versión de esta revisión:** `19.0.4.34`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -64,7 +64,7 @@ Los catálogos iniciales son editables. Comprueba que las tipologías necesarias
 
 Los iconos y colores predeterminados se toman del modelo/categoría, pero se pueden ajustar en el propio elemento cuando el perfil lo permite.
 
-Para desplazar el mapa, arrastra desde el fondo o desde un cable; un clic sin mover sigue seleccionando el cable y el doble clic abre su ficha. Arrastrar un elemento o sitio lo mueve, y arrastrar un vértice del cable seleccionado cambia su trazado.
+Con el teclado, las flechas desplazan el mapa y **+** / **-** (también los del teclado numérico) acercan o alejan respecto al centro; las teclas no actúan mientras escribes en un campo, con un diálogo abierto o con Ctrl/Cmd pulsado (que sigue siendo el zoom del navegador). Los botones **+** y **-** del mapa también acercan o alejan respecto al centro. Para desplazar el mapa con el ratón, arrastra desde el fondo o desde un cable; un clic sin mover sigue seleccionando el cable y el doble clic abre su ficha. Arrastrar un elemento o sitio lo mueve, y arrastrar un vértice del cable seleccionado cambia su trazado.
 
 Si mueves un sitio, elemento o cable, puedes usar **Deshacer** y **Rehacer** en el mapa. Se conserva un historial de hasta 30 cambios recientes durante la sesión; no es un sustituto de la copia de seguridad.
 
@@ -238,9 +238,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.33`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.33`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.33.zip`. Punto de retorno: `fiber_gis_19.0.4.32.zip`.
+- Versión de referencia: `19.0.4.34`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.34`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.34.zip`. Punto de retorno: `fiber_gis_19.0.4.33.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -354,7 +354,7 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.32.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.33.zip`.
 
 ### Objetivo actual
 
@@ -362,6 +362,7 @@ Trazado más cómodo (desplazamiento en el borde) y cables de paso: al trazar y 
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.34`: flechas y + / - del teclado en el mapa.
 - Versión `19.0.4.33`: botón «Obtener dirección» en las fichas de elemento y sitio.
 - Versión `19.0.4.32`: botón «Conectar cable que atraviesa» en la ficha del elemento y corrección al reducir los tramos de un cable.
 - Versión `19.0.4.31`: desplazamiento en el borde al trazar, pregunta por elementos atravesados y revisión de cables de paso en Configuración.
@@ -512,6 +513,12 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.34
+
+- **Teclado en el mapa.** Las flechas desplazan 80 px por pulsación y **+** / **-** (también `=` y los del teclado numérico) acercan o alejan ×1,25 respecto al centro. Con la tecla mantenida se usa la vista previa por transformación y el mapa se redibuja 250 ms después de soltar. Se escucha en la ventana con `useExternalListener` de Owl, solo mientras el mapa está abierto. No actúa al escribir en campos, con un diálogo abierto (incluidos bocas, paso y tipología del trazado) ni con Ctrl/Cmd/Alt.
+- Los botones **+** y **-** del mapa acercan o alejan respecto al centro; antes lo hacían respecto a la esquina superior izquierda.
+- Pruebas: comprobación estática en `tests/check_map_render.py` y prueba en Chromium (flechas, + / - e indicador de zoom, sin efecto al escribir en la búsqueda). Sin cambios de modelo. Punto de retorno: `19.0.4.33`.
 
 ## Cambios de la versión 19.0.4.33
 

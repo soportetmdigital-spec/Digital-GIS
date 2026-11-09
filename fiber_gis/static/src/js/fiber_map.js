@@ -6,6 +6,7 @@ import {
     onPatched,
     onWillStart,
     onWillUnmount,
+    useExternalListener,
     useRef,
     useState,
 } from "@odoo/owl";
@@ -30,6 +31,17 @@ const SEARCH_IDLE_MS = 1000;
 const MAP_HISTORY_LIMIT = 30;
 const CAMERA_STORAGE_KEY = "fiber_gis.map.camera";
 const LAYER_SAVE_IDLE_MS = 400;
+// Teclado: las flechas desplazan el mapa y + / - cambian el zoom en el centro.
+const KEYBOARD_PAN_PX = 80;
+const KEYBOARD_ZOOM_IN = 1.25;
+const KEYBOARD_COMMIT_IDLE_MS = 250;
+const KEYBOARD_PAN_KEYS = {
+    ArrowLeft: [KEYBOARD_PAN_PX, 0],
+    ArrowRight: [-KEYBOARD_PAN_PX, 0],
+    ArrowUp: [0, KEYBOARD_PAN_PX],
+    ArrowDown: [0, -KEYBOARD_PAN_PX],
+};
+const KEYBOARD_ZOOM_KEYS = { "+": KEYBOARD_ZOOM_IN, "=": KEYBOARD_ZOOM_IN, Add: KEYBOARD_ZOOM_IN, "-": 1 / KEYBOARD_ZOOM_IN, Subtract: 1 / KEYBOARD_ZOOM_IN };
 // Al trazar un cable, el mapa se desplaza solo cuando el puntero se acerca al borde.
 const DRAFT_EDGE_MARGIN_PX = 48;
 const DRAFT_EDGE_SPEED_PX = 14;
@@ -131,6 +143,8 @@ export class FiberGisMap extends Component {
         onWillStart(async () => {
             await this.loadData();
         });
+
+        useExternalListener(window, "keydown", this.onKeyDown.bind(this));
 
         onMounted(() => {
             this.updateViewportSize();
@@ -2558,10 +2572,50 @@ export class FiberGisMap extends Component {
     }
 
     zoom(delta) {
+        // Los botones + y - acercan o alejan respecto al centro del mapa, igual que el teclado.
+        const rect = this.state.bounds && this.svg.el?.getBoundingClientRect();
+        if (rect) {
+            this.zoomAt(delta, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            return;
+        }
         clearTimeout(this._interactionCommitTimer);
         this.commitInteractionCamera();
         this.state.scale = Math.max(this.state.scale * delta, 0.000001);
         this.scheduleSaveCamera();
+    }
+
+    onKeyDown(ev) {
+        if (ev.ctrlKey || ev.metaKey || ev.altKey || !this.svg.el || !this.state.bounds) {
+            return;
+        }
+        const target = ev.target;
+        if (target?.closest?.("input, textarea, select, [contenteditable='true'], .modal")) {
+            return;
+        }
+        if (document.querySelector(".modal") || this.state.cableDraftToNodeId
+            || this.state.cableDraftPassCandidates.length || this.state.showCableDraftFinalize) {
+            return;
+        }
+        const pan = KEYBOARD_PAN_KEYS[ev.key];
+        const zoom = KEYBOARD_ZOOM_KEYS[ev.key];
+        if (!pan && !zoom) {
+            return;
+        }
+        ev.preventDefault();
+        this.cancelTooltip();
+        this.closeContextMenu();
+        clearTimeout(this._interactionCommitTimer);
+        if (pan) {
+            // Con la tecla mantenida se mueve la imagen ya pintada y se redibuja al soltar.
+            const camera = this.beginInteractionCamera();
+            camera.offsetX += pan[0];
+            camera.offsetY += pan[1];
+            this.applySceneCamera(camera);
+        } else {
+            const rect = this.svg.el.getBoundingClientRect();
+            this.previewZoomAt(zoom, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        }
+        this.scheduleInteractionCameraCommit(KEYBOARD_COMMIT_IDLE_MS);
     }
 
     beginInteractionCamera() {

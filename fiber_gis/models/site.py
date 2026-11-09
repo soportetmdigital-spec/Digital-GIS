@@ -556,7 +556,7 @@ class FiberGisSite(models.Model):
     def _nominatim_user_agent(self, email=""):
         """Consulta «usuario agente» mediante el servicio de geocodificación Nominatim."""
         contact = f"; {email}" if email else ""
-        return f"FiberGIS/19.0.4.33 (Odoo 19{contact})"
+        return f"FiberGIS/19.0.4.34 (Odoo 19{contact})"
 
     @api.model
     def _nominatim_cache_key(self, value):
