@@ -2,6 +2,8 @@
 
 from html import escape
 
+from .map_icon_catalog import CUSTOM_ICON_PREFIX
+
 
 MAP_ICON_PATHS = {
     "diamond": "M 0 -10 L 10 0 L 0 10 L -10 0 Z",
@@ -28,6 +30,15 @@ def map_icon_preview_html(icon, color, label):
     icon = icon or "circle"
     color = escape(color or "#334155")
     label = escape(label or "Icono")
+    if icon.startswith(CUSTOM_ICON_PREFIX):
+        code = escape(icon[len(CUSTOM_ICON_PREFIX):])
+        # Imagen subida: se muestra tal cual, con su transparencia y sin el color del elemento.
+        return (
+            "<div class='o_fiber_gis_icon_preview'>"
+            f"<img src='/fiber_gis/map_icon/{code}' alt='' width='48' height='48'/>"
+            f"<span>{label}</span>"
+            "</div>"
+        )
     if icon == "square":
         shape = f"<rect x='10' y='10' width='28' height='28' rx='5' fill='{color}'/>"
     elif icon == "circle":

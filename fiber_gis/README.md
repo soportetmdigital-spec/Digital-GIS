@@ -1,6 +1,6 @@
 # Digital GIS para Odoo 19
 
-**Versión de esta revisión:** `19.0.4.34`
+**Versión de esta revisión:** `19.0.4.35`
 **Objetivo:** inventariar, representar y documentar una red de fibra óptica desde Odoo Community.
 
 Esta revisión toma como base funcional `19.0.3.37.31` y continúa la entrega `19.0.3.47`. Incluye las mejoras de bandejas y cartas de empalme descritas en el historial.
@@ -45,7 +45,8 @@ El catálogo incluye el **Panel FHU 1U 48F SC/UPC** (SKU FS.com 35529), con 24 a
 
 Antes de inventariar la red, un responsable debe revisar los catálogos de **Digital GIS > Configuración**:
 
-1. **Modelos de elemento:** nombre del modelo, categoría, icono, color, bocas de cable y si los elementos de ese modelo tienen bandejas por defecto. El modelo **Arqueta** se llama así y propone un cuadrado negro en el mapa; puedes cambiar icono y color en la ficha. Las arquetas ya existentes conservan sus valores. CTO, CTO interna, Caja terminal y Caja de registro se configuran con bandejas; cada ficha permite ajustar su caso particular. La CTO general tiene 4 bocas; «CTO interna» tiene 2. El modelo describe la familia del equipo; el tipo de función concreta el uso del elemento.
+1. **Iconos del mapa:** además de las formas incluidas, un responsable puede subir iconos propios en **Configuración > Iconos del mapa** (PNG con fondo transparente o SVG; cuadrado, de 64 a 256 píxeles). En el mapa se dibujan tal cual, con su transparencia y sin el color del elemento, y se eligen en el mismo selector de icono de elementos, sitios y modelos. Un icono en uso no se puede borrar; se puede archivar.
+2. **Modelos de elemento:** nombre del modelo, categoría, icono, color, bocas de cable y si los elementos de ese modelo tienen bandejas por defecto. El modelo **Arqueta** se llama así y propone un cuadrado negro en el mapa; puedes cambiar icono y color en la ficha. Las arquetas ya existentes conservan sus valores. CTO, CTO interna, Caja terminal y Caja de registro se configuran con bandejas; cada ficha permite ajustar su caso particular. La CTO general tiene 4 bocas; «CTO interna» tiene 2. El modelo describe la familia del equipo; el tipo de función concreta el uso del elemento.
 2. **Tipos GIS:** opciones de clasificación que aparecen en la ficha y en los filtros.
 3. **Tipologías de cable:** nombre, Tipo GIS, número de tubos y fibras. Sin tubos, el valor de fibras es el total del cable. Con tubos, es el número de fibras por tubo; el total se calcula como tubos por fibras por tubo. Ejemplo: 4 tubos x 6 fibras = 24 fibras.
 4. **Tipos de arqueta:** comprobar nombre y medidas interiores. Se pueden ajustar a los criterios de la red local.
@@ -55,7 +56,7 @@ Los catálogos iniciales son editables. Comprueba que las tipologías necesarias
 
 ## 4. Inventariar el mapa
 
-1. Abre **Digital GIS > Mapa**.
+1. Abre **Digital GIS > Mapa**. La cartografía del Catastro se sirve desde el propio Odoo en teselas: cada tesela se descarga del Catastro la primera vez que alguien la ve y queda guardada en el servidor para todos los usuarios (30 días por defecto). Un responsable puede precargar la zona de la red en **Configuración > Ajustes > Precargar cartografía de la red**; se descarga en segundo plano y después el mapa carga mucho más rápido.
 2. Usa los filtros para mostrar sitios, elementos o cables y limitar el estado visible. Las **Capas** (Sitios, Elementos, Cables, Clientes y Acometidas) y los **Tipos de elemento** que desmarques se guardan en tu usuario: se mantienen al salir del mapa, al recargar la página y en otro navegador. Al trazar un cable se muestran todos los elementos para poder elegirlos y, al terminar, vuelven las capas que tenías. Si buscas o abres desde una ficha un elemento de una capa oculta, esa capa se muestra para enseñártelo, pero no cambia lo guardado.
 3. Busca un elemento por su nombre o matrícula. Para una dirección, introduce la calle y la población para acotar el resultado.
 4. Pulsa **Elemento** para crear un equipo. Indica nombre, matrícula, modelo, tipo de función, coordenadas y dirección. Si la geocodificación devuelve una dirección larga, corrígela en la ficha para guardar la forma corta usada por el equipo.
@@ -150,6 +151,12 @@ El informe representa los datos almacenados en Odoo: una fusión inexistente, un
 
 Los metros con reserva se calculan a partir de los recorridos dibujados y el porcentaje configurado. Si faltan coordenadas o geometría, la estimación será parcial; revisa los avisos antes de imprimir.
 
+### Parcelas del Catastro para dimensionar el despliegue
+
+Con **Obtener parcelas del Catastro** en el plan (o **Parcelas del Catastro de esta vista** en el mapa) se importan en segundo plano las parcelas de la zona: referencia catastral, dirección, código postal, municipio, uso principal, **viviendas**, inmuebles y superficie construida, de los servicios públicos INSPIRE del Catastro. El Catastro tarda alrededor de un minuto por cada celda de unos 400 m; el avance se ve en **Inventario > Importaciones de parcelas** y los totales del plan (parcelas, viviendas y personas estimadas) se actualizan al terminar. Volver a importar actualiza las parcelas existentes.
+
+El Catastro **no publica cuántas personas viven en cada parcela**: las personas son una estimación (viviendas × tamaño medio del hogar, 2,5 por defecto, configurable en **Ajustes**). La lista **Inventario > Parcelas catastrales** permite filtrar residenciales, agrupar por código postal o municipio y sumar viviendas y personas estimadas.
+
 ## 9. Copias de seguridad
 
 En **Digital GIS > Configuración > Ajustes**, utiliza **Crear copia de seguridad** y descarga el ZIP generado. Para recuperar esos datos, selecciona el archivo en **Restaurar copia** y ejecuta la restauración. Ambas acciones están reservadas al perfil Responsable.
@@ -238,9 +245,9 @@ La carga actual obtiene los registros del mapa en cada apertura y realiza el fil
 
 ## 14. Referencia de entrega y continuidad
 
-- Versión de referencia: `19.0.4.34`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
-- Estado: candidata `19.0.4.34`, probada en Odoo 19 Community + PostgreSQL 16; falta la revisión visual en un navegador de escritorio.
-- Paquete de esta entrega: `fiber_gis_19.0.4.34.zip`. Punto de retorno: `fiber_gis_19.0.4.33.zip`.
+- Versión de referencia: `19.0.4.35`, declarada en `__manifest__.py`. El identificador del agente de geocodificación debe mantenerse sincronizado con esa versión.
+- Estado: candidata `19.0.4.35`, probada en Odoo 19 Community + PostgreSQL 16 y contra los servicios reales del Catastro; falta la revisión visual en un navegador de escritorio.
+- Paquete de esta entrega: `fiber_gis_19.0.4.35.zip`. Punto de retorno: `fiber_gis_19.0.4.34.zip`.
 - Al retomar: comprobar primero la versión del manifiesto y el contenido instalado; conservar las modificaciones locales existentes, crear un nuevo punto de retorno, modificar solo lo solicitado y actualizar este README junto con las referencias de versión.
 - Si una versión futura cambia el esquema, añadir una migración bajo `migrations/<version>/`, probarla sobre una copia reciente y documentar el procedimiento de actualización y retorno. No editar directamente la base real para suplir una migración ausente.
 - Crear el ZIP desde una única copia validada del módulo; incluir la carpeta superior `fiber_gis/` y no mezclar archivos de otra revisión. Ejecutar las pruebas disponibles, documentar las que no se pudieron ejecutar y conservar el paquete anterior.
@@ -354,7 +361,7 @@ Actualizado: 2026-10-29 — candidata local 19.0.4.28
 
 - Proyecto: módulo Fiber GIS para Odoo 19 Community. Fuente local: `work/fiber_gis/`.
 - Guía funcional e historial canónicos: este `README.md`; decisiones de relevo: `CONTINUIDAD_CODEX_CHATGPT.md`.
-- Entrega anterior: `fiber_gis_19.0.4.33.zip`.
+- Entrega anterior: `fiber_gis_19.0.4.34.zip`.
 
 ### Objetivo actual
 
@@ -362,6 +369,7 @@ Trazado más cómodo (desplazamiento en el borde) y cables de paso: al trazar y 
 
 ### Versión y entrega más reciente
 
+- Versión `19.0.4.35`: iconos propios, cartografía del Catastro guardada en el servidor y parcelas catastrales con viviendas.
 - Versión `19.0.4.34`: flechas y + / - del teclado en el mapa.
 - Versión `19.0.4.33`: botón «Obtener dirección» en las fichas de elemento y sitio.
 - Versión `19.0.4.32`: botón «Conectar cable que atraviesa» en la ficha del elemento y corrección al reducir los tramos de un cable.
@@ -513,6 +521,14 @@ Actualizar a 19.0.4.27 y revisar el mapa en un navegador de escritorio con la re
 - Referencias oficiales Odoo 19: [servicio ORM de JavaScript](https://www.odoo.com/documentation/19.0/developer/reference/frontend/javascript_reference.html) y [ORM Python](https://www.odoo.com/documentation/19.0/developer/reference/backend/orm.html).
 - Sin cambios CSS/SCSS. No requiere migración ni altera asignaciones previas. Versión anterior y punto de retorno: `19.0.4.20`.
 
+
+## Cambios de la versión 19.0.4.35
+
+- **Iconos propios del mapa.** Nuevo modelo `fiber.gis.map.icon` (Configuración > Iconos del mapa, solo Responsable) con nombre, código estable e imagen (PNG/WebP/GIF/JPG hasta 256 px, o SVG sin procesar). Los iconos se añaden a la selección de icono de elementos, sitios y modelos como `custom_<código>` (selección dinámica `_selection_map_icon`), así una copia de seguridad restaurada conserva la referencia. El mapa los dibuja como `<image>` sin color ni sombra, con su transparencia; al seleccionar, un aro. Ruta `/fiber_gis/map_icon/<código>` servida con `ir.binary` (con versión en la URL para la caché del navegador y la política de seguridad de contenidos que Odoo aplica a las imágenes). Un icono en uso no se puede borrar.
+- **Cartografía del Catastro guardada en el servidor.** El mapa ya no pide al Catastro una imagen nueva del tamaño de la vista en cada movimiento: usa teselas fijas de 512 px en EPSG:3857 que sirve la ruta `/fiber_gis/catastro/<z>/<x>/<y>.png`. Cada tesela se descarga del WMS del Catastro una sola vez y se guarda en memoria (400 teselas por proceso) y en disco, junto al filestore de la base de datos (compartida por todos los procesos y usuarios). Caduca a los 30 días (configurable); si el Catastro no responde se sirve la copia antigua. Máximo 3 descargas simultáneas por proceso y un reintento. Al cambiar de zoom, el nivel anterior queda debajo 2,5 s para no ver el fondo vacío. Ajustes: validez, estado de la caché, **Precargar cartografía de la red** (cron en segundo plano con el progreso por lotes de Odoo 19, niveles 13 a 18 sobre el rectángulo de elementos y sitios) y **Vaciar cartografía guardada**. Medido con la cartografía real: 24 teselas visibles en 0,5 s con la caché llena frente a 30 s sin ella.
+- **Parcelas catastrales.** Nuevos modelos `fiber.gis.parcel` (referencia, dirección, código postal, municipio, uso, viviendas, inmuebles, superficie, personas estimadas, enlace a la Sede) y `fiber.gis.parcel.import` (importación en segundo plano por celdas de 0,004°, máximo unos 25 km², con avance e incidencias). Datos de los servicios INSPIRE del Catastro: edificios (`numberOfDwellings`, `numberOfBuildingUnits`, uso, superficie) y direcciones por zona. Botón en el plan de despliegue (zona de sus elementos y recorridos con 150 m de margen) y en el mapa (vista visible). El plan muestra parcelas, viviendas y personas estimadas y una pestaña **Parcelas**. Personas = viviendas × tamaño medio del hogar (Ajustes, 2,5 por defecto): el Catastro no publica población por parcela.
+- Copia de seguridad: incluye iconos del mapa y parcelas.
+- Pruebas: `TestMapIcons`, `TestMapIconRoute`, `TestCatastroTiles`, `TestCatastroTileRoute` y `TestParcels` (12 pruebas ORM, con el Catastro simulado a partir de respuestas reales guardadas en `tests/data`), `tests/check_catastro.py` y comprobaciones en `tests/check_map_render.py`. Batería ORM: mismos 20 fallos anteriores, ninguno nuevo. En Chromium con el Catastro real: teselas alineadas, iconos con transparencia e importación de parcelas desde el mapa. Punto de retorno: `19.0.4.34`.
 
 ## Cambios de la versión 19.0.4.34
 

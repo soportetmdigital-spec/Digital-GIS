@@ -12,3 +12,5 @@ from . import test_backup_restore
 from . import test_map_layers
 from . import test_cable_pass
 from . import test_reverse_geocode
+from . import test_map_icons
+from . import test_catastro

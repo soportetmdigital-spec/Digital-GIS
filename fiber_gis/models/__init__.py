@@ -2,6 +2,9 @@ from . import asset_type
 from . import node_category
 from . import manhole_type
 from . import map_actions
+from . import map_icon_catalog
+from . import catastro_tiles
+from . import parcel
 from . import site
 from . import deployment_plan
 from . import node

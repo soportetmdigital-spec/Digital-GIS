@@ -74,6 +74,11 @@ export class FiberIconSelectField extends Component {
         this.state.open = false;
     }
 
+    customIconUrl(value) {
+        // Icono subido en «Iconos del mapa»: se muestra su imagen, sin el color del registro.
+        return value && value.startsWith("custom_") ? `/fiber_gis/map_icon/${encodeURIComponent(value.slice(7))}` : "";
+    }
+
     path(value) {
         return ICON_PATHS[value] || ICON_PATHS.network;
     }

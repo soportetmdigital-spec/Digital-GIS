@@ -30,6 +30,15 @@ class FiberGisSettingsWizard(models.TransientModel):
         digits=(3, 2),
         help="Nivel de zoom a partir del cual se muestran los iconos y nombres completos en el mapa.",
     )
+    catastro_cache_days = fields.Integer(
+        string="Validez de la cartografía guardada (días)", default=30,
+        help="Las teselas del Catastro guardadas en el servidor se vuelven a descargar pasado este plazo.",
+    )
+    catastro_cache_summary = fields.Char(string="Cartografía guardada", readonly=True)
+    household_size = fields.Float(
+        string="Tamaño medio del hogar", digits=(4, 2), default=2.5,
+        help="Personas por vivienda para estimar la población de cada parcela catastral.",
+    )
     backup_file = fields.Binary(string="Archivo de backup")
     backup_filename = fields.Char(string="Nombre del backup")
     fiber_gis_nominatim_url = fields.Char(
@@ -55,6 +64,9 @@ class FiberGisSettingsWizard(models.TransientModel):
             "fiber_gis.nominatim_email", ""
         )
         values["module_version"] = self._module_version()
+        values["catastro_cache_days"] = self.env["fiber.gis.catastro.tiles"]._max_age_days()
+        values["catastro_cache_summary"] = self.env["fiber.gis.catastro.tiles"].cache_summary()
+        values["household_size"] = self.env["fiber.gis.parcel"]._household_size()
         raw_zoom = parameters.get_param("fiber_gis.map_detail_zoom", "0.67")
         try:
             values["map_detail_zoom"] = min(max(float(raw_zoom), 0.1), 10.0)
@@ -99,6 +111,15 @@ class FiberGisSettingsWizard(models.TransientModel):
         )
         parameters.set_param("fiber_gis.google_maps_api_key", "")
         parameters.set_param("fiber_gis.map_detail_zoom", f"{detail_zoom:.2f}")
+        if not 1 <= (self.catastro_cache_days or 0) <= 365:
+            raise UserError("La validez de la cartografía guardada debe estar entre 1 y 365 días.")
+        parameters.set_param("fiber_gis.catastro_cache_days", str(self.catastro_cache_days))
+        if not 0.1 <= (self.household_size or 0) <= 20:
+            raise UserError("El tamaño medio del hogar debe estar entre 0,1 y 20 personas.")
+        parcel_model = self.env["fiber.gis.parcel"]
+        if abs(parcel_model._household_size() - self.household_size) > 1e-6:
+            parameters.set_param("fiber_gis.household_size", f"{self.household_size:.2f}")
+            parcel_model.sudo().recompute_estimated_people()
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
@@ -107,6 +128,33 @@ class FiberGisSettingsWizard(models.TransientModel):
                 "message": "Se han guardado los ajustes de Fiber GIS.",
                 "type": "success",
                 "sticky": False,
+            },
+        }
+
+    def action_precache_catastro(self):
+        """Programa la descarga en segundo plano de la cartografía que cubre la red."""
+        self._check_fiber_gis_manager()
+        total = self.env["fiber.gis.catastro.tiles"].start_precache()
+        message = (
+            f"Se descargarán en segundo plano {total} teselas del Catastro que cubren la red. "
+            "Puedes seguir trabajando; el avance se ve en esta pantalla."
+            if total else "No hay elementos ni sitios con coordenadas para delimitar la zona."
+        )
+        return self._notification("Precarga de cartografía", message, "info" if total else "warning")
+
+    def action_clear_catastro_cache(self):
+        """Borra la cartografía del Catastro guardada en el servidor."""
+        self._check_fiber_gis_manager()
+        self.env["fiber.gis.catastro.tiles"].clear_cache()
+        return self._notification("Cartografía", "Se ha vaciado la cartografía guardada.", "success")
+
+    def _notification(self, title, message, kind):
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": title, "message": message, "type": kind, "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
             },
         }
 
@@ -302,12 +350,14 @@ class FiberGisSettingsWizard(models.TransientModel):
         línea de splitter se cree ya enlazada a su splitter y pase las validaciones de fibras.
         """
         return [
+            "fiber.gis.map.icon",
             "fiber.gis.cable.profile",
             "fiber.gis.asset.type",
             "fiber.gis.node.category",
             "fiber.gis.manhole.type",
             "fiber.gis.site",
             "fiber.gis.deployment.plan",
+            "fiber.gis.parcel",
             "fiber.gis.node",
             "fiber.gis.node.photo",
             "fiber.gis.splice.document",

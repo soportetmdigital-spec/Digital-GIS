@@ -8,7 +8,8 @@
                 t-att-disabled="props.readonly"
                 t-att-title="selectedOption.label"
                 t-on-click="openPicker">
-                <svg viewBox="0 0 48 48" aria-hidden="true">
+                <img t-if="customIconUrl(value)" t-att-src="customIconUrl(value)" alt="" class="o_fiber_gis_icon_image"/>
+                <svg t-else="" viewBox="0 0 48 48" aria-hidden="true">
                     <circle t-if="value === 'circle'" cx="24" cy="24" r="14" t-att-fill="color"/>
                     <rect t-elif="value === 'square'" x="11" y="11" width="26" height="26" rx="5" t-att-fill="color"/>
                     <path t-else="" t-att-d="path(value)" t-att-fill="color" fill-rule="evenodd" transform="translate(24 24)"/>
@@ -29,7 +30,8 @@
                             type="button"
                             t-att-class="option.value === value ? 'is-selected' : ''"
                             t-on-click="() => this.select(option.value)">
-                            <svg viewBox="0 0 48 48" aria-hidden="true">
+                            <img t-if="customIconUrl(option.value)" t-att-src="customIconUrl(option.value)" alt="" class="o_fiber_gis_icon_image"/>
+                            <svg t-else="" viewBox="0 0 48 48" aria-hidden="true">
                                 <circle t-if="option.value === 'circle'" cx="24" cy="24" r="14" t-att-fill="color"/>
                                 <rect t-elif="option.value === 'square'" x="11" y="11" width="26" height="26" rx="5" t-att-fill="color"/>
                                 <path t-else="" t-att-d="path(option.value)" t-att-fill="color" fill-rule="evenodd" transform="translate(24 24)"/>

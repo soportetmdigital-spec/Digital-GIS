@@ -28,6 +28,7 @@
                 <header>
                     <button name="action_open_map" type="object" string="Abrir plano de trabajo" class="btn-primary"/>
                     <button name="action_print_pdf" type="object" string="Imprimir PDF" class="btn-secondary"/>
+                    <button name="action_import_parcels" type="object" string="Obtener parcelas del Catastro" class="btn-secondary"/>
                     <button name="action_submit_review" type="object" string="Enviar a revisi&#xF3;n" invisible="state != 'draft'"/>
                     <button name="action_approve" type="object" string="Aprobar" class="btn-primary" invisible="state != 'review'"/>
                     <button name="action_start" type="object" string="Iniciar ejecuci&#xF3;n" invisible="state != 'approved'"/>
@@ -62,6 +63,11 @@
                         <field name="missing_coordinates_count" readonly="1"/>
                         <field name="direct_cable_count" readonly="1"/>
                     </group>
+                    <group string="Parcelas del Catastro" col="6">
+                        <field name="parcel_count"/>
+                        <field name="dwellings_total"/>
+                        <field name="people_total"/>
+                    </group>
                     <notebook>
                         <page string="Elementos">
                             <field name="node_ids" context="{'default_state': 'planned'}">
@@ -90,6 +96,27 @@
                                     <field name="length_m"/>
                                     <field name="state"/>
                                     <button name="action_open_map" type="object" string="Ver en mapa" class="btn-secondary"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Parcelas" name="parcels">
+                            <field name="parcel_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="address"/>
+                                    <field name="postcode"/>
+                                    <field name="current_use"/>
+                                    <field name="dwellings" sum="Viviendas"/>
+                                    <field name="estimated_people" sum="Personas estimadas"/>
+                                </list>
+                            </field>
+                            <field name="parcel_import_ids" readonly="1" invisible="not parcel_import_ids">
+                                <list>
+                                    <field name="create_date" string="Solicitada"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="progress" widget="progressbar"/>
+                                    <field name="parcels_found"/>
+                                    <field name="dwellings_found"/>
                                 </list>
                             </field>
                         </page>

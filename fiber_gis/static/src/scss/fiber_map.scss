@@ -1733,3 +1733,20 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+// Iconos subidos: la imagen se dibuja con su transparencia; al seleccionar, un aro alrededor.
+.o_fiber_gis_nodes image {
+    pointer-events: none;
+}
+
+.o_fiber_gis_icon_ring {
+    fill: rgba(255, 255, 255, 0.35);
+    stroke: #111827;
+    stroke-width: 3;
+}
+
+.o_fiber_gis_icon_select img.o_fiber_gis_icon_image {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}

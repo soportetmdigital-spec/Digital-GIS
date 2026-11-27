@@ -16,6 +16,41 @@ from .map_actions import google_maps_action
 from .node_category import NODE_KIND_SELECTION
 
 
+# Formas incluidas en el módulo; los iconos subidos se añaden desde «Iconos del mapa».
+NODE_MAP_ICONS = [
+    ("circle", "Circulo"),
+    ("square", "Cuadrado"),
+    ("diamond", "Rombo"),
+    ("triangle", "Triangulo"),
+    ("star", "Estrella"),
+    ("network", "Red"),
+    ("olt", "OLT / cabecera"),
+    ("odf", "ODF"),
+    ("fdh", "Armario distribucion"),
+    ("cto", "CTO"),
+    ("terminal", "Caja terminal"),
+    ("cabinet", "Armario"),
+    ("closure", "Caja de registro"),
+    ("dome_closure", "Cierre de empalme"),
+    ("splice", "Fusion / empalme"),
+    ("manhole", "Arqueta"),
+    ("chamber", "Camara"),
+    ("handhole", "Arqueta pequena"),
+    ("pole", "Poste"),
+    ("aerial_strand", "Tendido aereo"),
+    ("duct", "Canalizacion"),
+    ("splitter", "Splitter"),
+    ("rack", "Rack"),
+    ("ont", "ONT/CPE"),
+    ("router", "Router cliente"),
+    ("drop", "Acometida"),
+    ("building", "Edificio"),
+    ("customer", "Cliente"),
+    ("customer_terminal", "Cliente final"),
+    ("tray", "Bandeja"),
+]
+
+
 class FiberGisNode(models.Model):
     _name = "fiber.gis.node"
     _description = "Elemento o equipo de red de fibra"
@@ -51,38 +86,7 @@ class FiberGisNode(models.Model):
         tracking=True,
     )
     map_icon = fields.Selection(
-        [
-            ("circle", "Circulo"),
-            ("square", "Cuadrado"),
-            ("diamond", "Rombo"),
-            ("triangle", "Triangulo"),
-            ("star", "Estrella"),
-            ("network", "Red"),
-            ("olt", "OLT / cabecera"),
-            ("odf", "ODF"),
-            ("fdh", "Armario distribucion"),
-            ("cto", "CTO"),
-            ("terminal", "Caja terminal"),
-            ("cabinet", "Armario"),
-            ("closure", "Caja de registro"),
-            ("dome_closure", "Cierre de empalme"),
-            ("splice", "Fusion / empalme"),
-            ("manhole", "Arqueta"),
-            ("chamber", "Camara"),
-            ("handhole", "Arqueta pequena"),
-            ("pole", "Poste"),
-            ("aerial_strand", "Tendido aereo"),
-            ("duct", "Canalizacion"),
-            ("splitter", "Splitter"),
-            ("rack", "Rack"),
-            ("ont", "ONT/CPE"),
-            ("router", "Router cliente"),
-            ("drop", "Acometida"),
-            ("building", "Edificio"),
-            ("customer", "Cliente"),
-            ("customer_terminal", "Cliente final"),
-            ("tray", "Bandeja"),
-        ],
+        selection="_selection_map_icon",
         string="Icono en mapa",
         default="circle",
         required=True,
@@ -1049,11 +1053,16 @@ class FiberGisNode(models.Model):
             return f"{label} - {endpoint.address}"
         return label
 
+    @api.model
+    def _selection_map_icon(self):
+        """Formas incluidas en el módulo y, a continuación, los iconos subidos por los responsables."""
+        return NODE_MAP_ICONS + self.env["fiber.gis.map.icon"]._selection_options()
+
     @api.depends("map_icon", "color")
     def _compute_map_icon_preview_html(self):
         """Calcula y actualiza «mapa icono vista previa HTML» a partir de los datos actuales y sus relaciones."""
         for node in self:
-            labels = dict(node._fields["map_icon"].selection)
+            labels = dict(node._selection_map_icon())
             node.map_icon_preview_html = map_icon_preview_html(
                 node.map_icon,
                 node.color,

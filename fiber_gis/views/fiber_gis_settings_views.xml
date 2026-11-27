@@ -25,6 +25,18 @@
                             string="Actualizar colores CTO"
                             class="btn-secondary"/>
                     </group>
+                    <group string="Cartografía del Catastro">
+                        <field name="catastro_cache_days"/>
+                        <field name="catastro_cache_summary"/>
+                        <div class="text-muted" colspan="2">El mapa usa la cartografía guardada en el servidor; solo se descarga del Catastro la primera vez o cuando caduca.</div>
+                        <button name="action_precache_catastro" type="object" string="Precargar cartografía de la red" class="btn-secondary"/>
+                        <button name="action_clear_catastro_cache" type="object" string="Vaciar cartografía guardada" class="btn-secondary"
+                            confirm="Se borrará la cartografía guardada y el mapa volverá a descargarla del Catastro. ¿Continuar?"/>
+                    </group>
+                    <group string="Parcelas del Catastro">
+                        <field name="household_size"/>
+                        <div class="text-muted" colspan="2">Se usa para estimar las personas de cada parcela (viviendas × tamaño medio del hogar). El Catastro no publica cuántas personas viven en cada parcela.</div>
+                    </group>
                     <group string="Cableado">
                         <button
                             name="%(fiber_gis.action_fiber_gis_cable_pass_review)d"

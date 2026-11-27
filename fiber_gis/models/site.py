@@ -44,6 +44,22 @@ _CATASTRO_STREET_TYPES = {
 }
 
 
+# Formas incluidas en el módulo para sitios; los iconos subidos se añaden desde «Iconos del mapa».
+SITE_MAP_ICONS = [
+    ("square", "Cuadrado"),
+    ("circle", "Circulo"),
+    ("diamond", "Rombo"),
+    ("triangle", "Triangulo"),
+    ("star", "Estrella"),
+    ("network", "Red"),
+    ("olt", "OLT / cabecera"),
+    ("fdh", "Armario distribucion"),
+    ("rack", "Rack"),
+    ("cabinet", "Armario"),
+    ("building", "Edificio"),
+]
+
+
 class FiberGisSite(models.Model):
     _name = "fiber.gis.site"
     _description = "Sitio de red de fibra"
@@ -63,19 +79,7 @@ class FiberGisSite(models.Model):
     code = fields.Char(string="Matricula", tracking=True, index=True)
     partner_id = fields.Many2one("res.partner", string="Contacto")
     map_icon = fields.Selection(
-        [
-            ("square", "Cuadrado"),
-            ("circle", "Circulo"),
-            ("diamond", "Rombo"),
-            ("triangle", "Triangulo"),
-            ("star", "Estrella"),
-            ("network", "Red"),
-            ("olt", "OLT / cabecera"),
-            ("fdh", "Armario distribucion"),
-            ("rack", "Rack"),
-            ("cabinet", "Armario"),
-            ("building", "Edificio"),
-        ],
+        selection="_selection_map_icon",
         string="Icono en mapa",
         default="network",
         required=True,
@@ -126,11 +130,16 @@ class FiberGisSite(models.Model):
         for site in self:
             site.node_count = len(site.node_ids)
 
+    @api.model
+    def _selection_map_icon(self):
+        """Formas incluidas para sitios y los iconos subidos por los responsables."""
+        return SITE_MAP_ICONS + self.env["fiber.gis.map.icon"]._selection_options()
+
     @api.depends("map_icon", "color")
     def _compute_map_icon_preview_html(self):
         """Calcula y actualiza «mapa icono vista previa HTML» a partir de los datos actuales y sus relaciones."""
         for site in self:
-            labels = dict(site._fields["map_icon"].selection)
+            labels = dict(site._selection_map_icon())
             site.map_icon_preview_html = map_icon_preview_html(
                 site.map_icon,
                 site.color,
@@ -556,7 +565,7 @@ class FiberGisSite(models.Model):
     def _nominatim_user_agent(self, email=""):
         """Consulta «usuario agente» mediante el servicio de geocodificación Nominatim."""
         contact = f"; {email}" if email else ""
-        return f"FiberGIS/19.0.4.34 (Odoo 19{contact})"
+        return f"FiberGIS/19.0.4.35 (Odoo 19{contact})"
 
     @api.model
     def _nominatim_cache_key(self, value):

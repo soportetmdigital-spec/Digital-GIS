@@ -81,6 +81,14 @@ class FiberGisDeploymentPlan(models.Model):
         string="Metros estimados con reserva",
         compute="_compute_metrics",
     )
+    parcel_ids = fields.Many2many(
+        "fiber.gis.parcel", "fiber_gis_plan_parcel_rel", "plan_id", "parcel_id",
+        string="Parcelas catastrales",
+    )
+    parcel_import_ids = fields.One2many("fiber.gis.parcel.import", "deployment_plan_id", string="Importaciones de parcelas")
+    parcel_count = fields.Integer(string="Parcelas", compute="_compute_parcel_totals")
+    dwellings_total = fields.Integer(string="Viviendas", compute="_compute_parcel_totals")
+    people_total = fields.Float(string="Personas estimadas", digits=(10, 0), compute="_compute_parcel_totals")
     missing_coordinates_count = fields.Integer(
         string="Elementos sin coordenadas",
         compute="_compute_metrics",
@@ -129,6 +137,47 @@ class FiberGisDeploymentPlan(models.Model):
             plan.direct_cable_count = len(
                 plan.cable_ids.filtered(lambda cable: len(cable._get_geometry_points()) < 2)
             )
+
+    @api.depends("parcel_ids", "parcel_ids.dwellings", "parcel_ids.estimated_people")
+    def _compute_parcel_totals(self):
+        """Totales de las parcelas catastrales asociadas al plan."""
+        for plan in self:
+            plan.parcel_count = len(plan.parcel_ids)
+            plan.dwellings_total = sum(plan.parcel_ids.mapped("dwellings"))
+            plan.people_total = sum(plan.parcel_ids.mapped("estimated_people"))
+
+    def _area_bbox(self, margin=0.0015):
+        """Rectángulo (oeste, sur, este, norte) de los elementos y recorridos del plan, con un margen de unos 150 m."""
+        self.ensure_one()
+        points = [(node.latitude, node.longitude) for node in self._scope_nodes() if node.latitude and node.longitude]
+        for cable in self.cable_ids:
+            points.extend(point for point in cable._get_geometry_points() if point[0] and point[1])
+        if not points:
+            raise UserError("El plan necesita elementos o cables con coordenadas para delimitar la zona.")
+        return (
+            min(point[1] for point in points) - margin, min(point[0] for point in points) - margin,
+            max(point[1] for point in points) + margin, max(point[0] for point in points) + margin,
+        )
+
+    def action_import_parcels(self):
+        """Programa la importación en segundo plano de las parcelas del Catastro de la zona del plan."""
+        self.ensure_one()
+        job = self.env["fiber.gis.parcel.import"].schedule(*self._area_bbox(), f"Plan {self.display_name}", self)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Parcelas del Catastro",
+                "message": (
+                    f"Se importarán en segundo plano las parcelas de la zona del plan ({job.cells_total} "
+                    f"{'celda' if job.cells_total == 1 else 'celdas'}; "
+                    "el Catastro tarda alrededor de un minuto por celda). Los totales se actualizan al terminar."
+                ),
+                "type": "info",
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }
 
     def _scope_nodes(self):
         """Obtiene los elementos incluidos en el plan y añade los que participan en sus cables asociados."""

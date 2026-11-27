@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_fiber_gis_catastro_precache" model="ir.cron">
+        <field name="name">Fiber GIS: precargar cartografía del Catastro</field>
+        <field name="model_id" ref="model_fiber_gis_catastro_tiles"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_precache()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

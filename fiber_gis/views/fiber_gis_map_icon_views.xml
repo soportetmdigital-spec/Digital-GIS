@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_map_icon_list" model="ir.ui.view">
+        <field name="name">fiber.gis.map.icon.list</field>
+        <field name="model">fiber.gis.map.icon</field>
+        <field name="arch" type="xml">
+            <list string="Iconos del mapa">
+                <field name="sequence" widget="handle"/>
+                <field name="image" widget="image" options="{'size': [32, 32]}"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_map_icon_form" model="ir.ui.view">
+        <field name="name">fiber.gis.map.icon.form</field>
+        <field name="model">fiber.gis.map.icon</field>
+        <field name="arch" type="xml">
+            <form string="Icono del mapa">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="image" widget="image" class="oe_avatar" options="{'preview_image': 'image', 'accepted_file_extensions': '.png,.svg,.webp,.gif,.jpg,.jpeg'}"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Por ejemplo: CTO exterior"/></h1>
+                    </div>
+                    <group>
+                        <field name="code"/>
+                        <field name="sequence"/>
+                        <field name="active" invisible="1"/>
+                    </group>
+                    <p class="text-muted">
+                        Sube un PNG con fondo transparente o un SVG: en el mapa se dibuja tal cual, con su transparencia
+                        y sin el color del elemento. Tamaño recomendado: cuadrado, entre 64 y 256 píxeles.
+                        Después elige el icono en la ficha del elemento, del sitio o del modelo de elemento.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_map_icon" model="ir.actions.act_window">
+        <field name="name">Iconos del mapa</field>
+        <field name="res_model">fiber.gis.map.icon</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Sube un icono para el mapa</p>
+            <p>Los iconos subidos se pueden elegir en elementos, sitios y modelos de elemento.</p>
+        </field>
+    </record>
+
+    <menuitem
+        id="menu_fiber_gis_map_icon"
+        name="Iconos del mapa"
+        parent="menu_fiber_gis_config"
+        action="action_fiber_gis_map_icon"
+        sequence="30"
+        groups="fiber_gis.group_fiber_gis_manager"/>
+</odoo>

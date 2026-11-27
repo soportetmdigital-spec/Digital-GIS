@@ -16,16 +16,18 @@ import { useService } from "@web/core/utils/hooks";
 const EARTH_RADIUS = 6378137;
 const DEFAULT_CENTER = { latitude: 37.183, longitude: -3.642 };
 const DEFAULT_SCALE = 0.065;
-const CATASTRO_WMS_URL = "https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx";
 const CATASTRO_START_ZOOM = 1.15;
+// Cartografía del Catastro en teselas fijas de 512 px (Web Mercator) servidas y guardadas por Odoo.
+const CATASTRO_TILE_URL = "/fiber_gis/catastro";
+const CATASTRO_TILE_SIZE = 512;
+const CATASTRO_MIN_ZOOM = 10;
+const CATASTRO_MAX_ZOOM = 21;
+const CATASTRO_TILE_PADDING = 0.25;
+const CATASTRO_MAX_TILES = 120;
+const CATASTRO_BACKDROP_MS = 2500;
 const MAP_INTERACTION_IDLE_MS = 420;
 const MAP_PAN_COMMIT_IDLE_MS = 90;
 const CAMERA_SAVE_IDLE_MS = 180;
-const CATASTRO_FRAME_PADDING = 0.35;
-const CATASTRO_UPDATE_IDLE_MS = 120;
-const CATASTRO_DETAIL_DELAY_MS = 850;
-const CATASTRO_PREVIEW_QUALITY = 0.55;
-const CATASTRO_REFRESH_SCALE_RATIO = 1.55;
 const VIEWPORT_CULL_PADDING = 0.12;
 const SEARCH_IDLE_MS = 1000;
 const MAP_HISTORY_LIMIT = 30;
@@ -72,7 +74,6 @@ export class FiberGisMap extends Component {
         this.mapScene = useRef("mapScene");
         this.zoomIndicator = useRef("zoomIndicator");
         this.tooltip = useRef("tooltip");
-        this.catastroImage = useRef("catastroImage");
         this.actionParams = this.props?.action?.params || this.props?.params || {};
         this.state = useState({
             sites: [],
@@ -126,6 +127,7 @@ export class FiberGisMap extends Component {
             cableDraftRouteKind: "underground",
             cableDraftTypeId: false,
             cableDraftCableIds: [],
+            parcelImportBusy: false,
             cableDraftPassCandidates: [],
             cableDraftFinalProfileId: false,
             showCableDraftFinalize: false,
@@ -158,12 +160,6 @@ export class FiberGisMap extends Component {
                 this.fitToNetwork();
             }
             this.preparePendingNodePlacement();
-            this.updateCatastroFrame({ immediate: true, quality: CATASTRO_PREVIEW_QUALITY });
-            this.scheduleCatastroFrameUpdate({
-                delay: CATASTRO_DETAIL_DELAY_MS,
-                force: true,
-                quality: 1,
-            });
         });
 
         onPatched(() => {
@@ -179,7 +175,7 @@ export class FiberGisMap extends Component {
             clearTimeout(this._wheelTimer);
             clearTimeout(this._interactionCommitTimer);
             clearTimeout(this._saveCameraTimer);
-            clearTimeout(this._catastroFrameTimer);
+            clearTimeout(this._catastroBackdropTimer);
             clearTimeout(this._searchTimer);
             clearTimeout(this._tooltipTimer);
             if (this._layerSaveTimer) {
@@ -195,8 +191,6 @@ export class FiberGisMap extends Component {
             if (this._edgePanFrame) {
                 cancelAnimationFrame(this._edgePanFrame);
             }
-            this._catastroFrameRequestId = (this._catastroFrameRequestId || 0) + 1;
-            this._catastroPreloadImage = null;
             this._streetSearchRequestId = (this._streetSearchRequestId || 0) + 1;
         });
     }
@@ -218,7 +212,7 @@ export class FiberGisMap extends Component {
             const cableDomain = loadOnlyPlan
                 ? [["id", "in", planScope.cable_ids || []]]
                 : [["active", "=", true]];
-            const [sites, nodes, cables, types, mapDetailZoom, cableProfiles, savedLayers] = await Promise.all([
+            const [sites, nodes, cables, types, mapDetailZoom, cableProfiles, savedLayers, mapIcons] = await Promise.all([
                 this.orm.searchRead(
                     "fiber.gis.site",
                     siteDomain,
@@ -300,7 +294,10 @@ export class FiberGisMap extends Component {
                 this._layerPreferencesLoaded
                     ? Promise.resolve(null)
                     : this.orm.call("res.users.settings", "get_fiber_gis_map_layers", []).catch(() => null),
+                this.orm.call("fiber.gis.map.icon", "get_map_icons", []).catch(() => []),
             ]);
+            // Iconos subidos: valor de selección -> URL de su imagen (con versión para la caché del navegador).
+            this._customIconUrls = new Map(mapIcons.map((icon) => [icon.value, icon.url]));
             if (!this._layerPreferencesLoaded) {
                 // Las capas guardadas se aplican al abrir el mapa; las recargas posteriores no las tocan.
                 this._layerPreferencesLoaded = true;
@@ -1102,7 +1099,6 @@ export class FiberGisMap extends Component {
         } catch {
             // El mapa sigue funcionando aunque el navegador bloquee localStorage.
         }
-        this.scheduleCatastroFrameUpdate();
     }
 
     scheduleSaveCamera() {
@@ -1154,146 +1150,97 @@ export class FiberGisMap extends Component {
         return Boolean(this.state.bounds);
     }
 
-    get catastroWebMap() {
+    catastroTileZoom() {
+        // Nivel cuyas teselas de 512 px se ven a un tamaño de entre unos 360 y 720 px en pantalla.
+        const worldPixels = 2 * Math.PI * EARTH_RADIUS * (this.state.scale || 1);
+        const zoom = Math.round(Math.log2(worldPixels / CATASTRO_TILE_SIZE));
+        return Math.min(Math.max(zoom, CATASTRO_MIN_ZOOM), CATASTRO_MAX_ZOOM);
+    }
+
+    catastroTilesForZoom(zoom) {
+        const bounds = this.state.bounds;
+        const scale = this.state.scale || 1;
+        const extent = Math.PI * EARTH_RADIUS;
+        const tileMeters = (2 * extent) / 2 ** zoom;
+        const padX = this.state.viewWidth * CATASTRO_TILE_PADDING;
+        const padY = this.state.viewHeight * CATASTRO_TILE_PADDING;
+        // Coordenadas Mercator visibles (la y del mapa es la y Mercator cambiada de signo).
+        const minX = (-padX - this.state.offsetX) / scale + bounds.minX;
+        const maxX = (this.state.viewWidth + padX - this.state.offsetX) / scale + bounds.minX;
+        const minY = (-padY - this.state.offsetY) / scale + bounds.minY;
+        const maxY = (this.state.viewHeight + padY - this.state.offsetY) / scale + bounds.minY;
+        const count = 2 ** zoom;
+        const clamp = (value) => Math.min(Math.max(value, 0), count - 1);
+        const x0 = clamp(Math.floor((minX + extent) / tileMeters));
+        const x1 = clamp(Math.floor((maxX + extent) / tileMeters));
+        const y0 = clamp(Math.floor((extent + minY) / tileMeters));
+        const y1 = clamp(Math.floor((extent + maxY) / tileMeters));
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > CATASTRO_MAX_TILES) {
+            return [];
+        }
+        const size = tileMeters * scale;
+        const tiles = [];
+        for (let x = x0; x <= x1; x += 1) {
+            for (let y = y0; y <= y1; y += 1) {
+                const corner = this.projectedToScreen({ x: -extent + x * tileMeters, y: -extent + y * tileMeters });
+                tiles.push({
+                    key: `${zoom}/${x}/${y}`,
+                    href: `${CATASTRO_TILE_URL}/${zoom}/${x}/${y}.png`,
+                    // Medio píxel más para que no se vean juntas entre teselas.
+                    x: Math.floor(corner.x),
+                    y: Math.floor(corner.y),
+                    size: Math.ceil(size) + 1,
+                });
+            }
+        }
+        return tiles;
+    }
+
+    get catastroTileLayers() {
+        void this.state.catastroRevision;
         if (!this.showCatastro) {
-            return null;
+            return { tiles: [], backdrop: [] };
         }
-        const frame = this._catastroFrame || this.buildCatastroFrame();
-        if (!frame) {
-            return null;
+        const zoom = this.catastroTileZoom();
+        if (this._catastroZoom !== undefined && this._catastroZoom !== zoom) {
+            // Al cambiar de nivel, el anterior se queda debajo mientras cargan las teselas nuevas.
+            this._catastroBackdropZoom = this._catastroZoom;
+            clearTimeout(this._catastroBackdropTimer);
+            this._catastroBackdropTimer = setTimeout(() => {
+                this._catastroBackdropZoom = null;
+                this.state.catastroRevision += 1;
+            }, CATASTRO_BACKDROP_MS);
         }
-        const topLeft = this.mapPoint(frame.north, frame.west);
-        const bottomRight = this.mapPoint(frame.south, frame.east);
+        this._catastroZoom = zoom;
+        const backdropZoom = this._catastroBackdropZoom;
         return {
-            url: frame.url,
-            x: topLeft.x,
-            y: topLeft.y,
-            width: bottomRight.x - topLeft.x,
-            height: bottomRight.y - topLeft.y,
+            tiles: this.catastroTilesForZoom(zoom),
+            backdrop: backdropZoom !== null && backdropZoom !== undefined ? this.catastroTilesForZoom(backdropZoom) : [],
         };
     }
 
-    scheduleCatastroFrameUpdate(options = {}) {
-        clearTimeout(this._catastroFrameTimer);
-        const delay = options.delay ?? CATASTRO_UPDATE_IDLE_MS;
-        this._catastroFrameTimer = setTimeout(() => this.updateCatastroFrame(options), delay);
-    }
-
-    updateCatastroFrame(options = {}) {
-        const currentFrame = this._catastroFrame;
-        if (!options.force && currentFrame && !this.catastroFrameNeedsRefresh(currentFrame)) {
+    async importParcelsInView() {
+        if (!this.state.bounds || this.state.parcelImportBusy) {
             return;
         }
-        const frame = this.buildCatastroFrame(options);
-        if (!frame) {
-            return;
+        const view = this.visibleGeoBounds();
+        this.state.parcelImportBusy = true;
+        try {
+            const result = await this.orm.call(
+                "fiber.gis.parcel.import",
+                "schedule_from_map",
+                [view.west, view.south, view.east, view.north, this.state.plan?.id || false]
+            );
+            this.notification.add(
+                `Se importarán en segundo plano las parcelas de esta vista (${result.cells} ${result.cells === 1 ? "celda" : "celdas"}; el Catastro tarda ` +
+                "alrededor de un minuto por celda). Consulta el avance en Inventario > Importaciones de parcelas.",
+                { type: "info" }
+            );
+        } catch (error) {
+            this.notification.add(error?.data?.message || "No se ha podido programar la importación de parcelas.", { type: "danger" });
+        } finally {
+            this.state.parcelImportBusy = false;
         }
-        if (frame.url === currentFrame?.url) {
-            return;
-        }
-        if (options.immediate || !currentFrame) {
-            this.applyCatastroFrame(frame);
-            return;
-        }
-        const requestId = (this._catastroFrameRequestId || 0) + 1;
-        this._catastroFrameRequestId = requestId;
-        const image = new Image();
-        image.decoding = "async";
-        this._catastroPreloadImage = image;
-        image.onload = () => {
-            if (this._catastroFrameRequestId === requestId) {
-                this.applyCatastroFrame(frame);
-                this._catastroPreloadImage = null;
-            }
-        };
-        image.onerror = () => {
-            if (this._catastroFrameRequestId === requestId) {
-                this._catastroPreloadImage = null;
-                this.notification.add(
-                    "Catastro no ha respondido. Se mantiene el plano anterior.",
-                    { type: "warning" }
-                );
-            }
-        };
-        image.src = frame.url;
-    }
-
-    applyCatastroFrame(frame) {
-        this._catastroFrame = frame;
-        const image = this.catastroImage.el;
-        if (!image) {
-            this.state.catastroRevision += 1;
-            return;
-        }
-        const topLeft = this.mapPoint(frame.north, frame.west);
-        const bottomRight = this.mapPoint(frame.south, frame.east);
-        image.setAttribute("href", frame.url);
-        image.setAttribute("x", topLeft.x);
-        image.setAttribute("y", topLeft.y);
-        image.setAttribute("width", bottomRight.x - topLeft.x);
-        image.setAttribute("height", bottomRight.y - topLeft.y);
-    }
-
-    catastroFrameNeedsRefresh(frame) {
-        if (!frame) {
-            return true;
-        }
-        const viewport = this.visibleGeoBounds();
-        const isOutsideFrame = (
-            viewport.west < frame.west ||
-            viewport.south < frame.south ||
-            viewport.east > frame.east ||
-            viewport.north > frame.north
-        );
-        if (isOutsideFrame || (frame.quality || 0) < 0.99) {
-            return true;
-        }
-        const frameScale = frame.scale || this.state.scale || 1;
-        const scaleRatio = Math.max(
-            this.state.scale / frameScale,
-            frameScale / this.state.scale
-        );
-        return scaleRatio >= CATASTRO_REFRESH_SCALE_RATIO;
-    }
-
-    buildCatastroFrame(options = {}) {
-        if (!this.showCatastro || !this.state.viewWidth || !this.state.viewHeight) {
-            return null;
-        }
-        const quality = Math.min(Math.max(Number(options.quality) || 1, 0.45), 1);
-        const viewport = this.paddedVisibleGeoBounds(CATASTRO_FRAME_PADDING);
-        const frameRatio = 1 + CATASTRO_FRAME_PADDING * 2;
-        const pixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1.25), 1.75);
-        const width = Math.min(
-            Math.max(Math.round(this.state.viewWidth * frameRatio * pixelRatio * quality), quality < 1 ? 800 : 1200),
-            3200
-        );
-        const height = Math.min(
-            Math.max(Math.round(this.state.viewHeight * frameRatio * pixelRatio * quality), quality < 1 ? 600 : 900),
-            2100
-        );
-        const params = new URLSearchParams({
-            SERVICE: "WMS",
-            VERSION: "1.1.1",
-            REQUEST: "GetMap",
-            FORMAT: "image/png",
-            TRANSPARENT: "FALSE",
-            SRS: "EPSG:4326",
-            LAYERS: "Catastro",
-            STYLES: "",
-            BBOX: `${viewport.west},${viewport.south},${viewport.east},${viewport.north}`,
-            WIDTH: `${width}`,
-            HEIGHT: `${height}`,
-        });
-        return {
-            url: `${CATASTRO_WMS_URL}?${params.toString()}`,
-            west: viewport.west,
-            south: viewport.south,
-            east: viewport.east,
-            north: viewport.north,
-            scale: this.state.scale,
-            quality,
-        };
     }
 
     visibleGeoBounds() {
@@ -1585,6 +1532,13 @@ export class FiberGisMap extends Component {
             return "M -12 -8 H 12 V 8 H -12 Z M -8 -4 H 8 V -1 H -8 Z M -8 2 H 8 V 5 H -8 Z";
         }
         return "";
+    }
+
+    customIconUrl(icon) {
+        if (!icon || !icon.startsWith("custom_")) {
+            return "";
+        }
+        return this._customIconUrls?.get(icon) || `/fiber_gis/map_icon/${encodeURIComponent(icon.slice(7))}`;
     }
 
     mapIconKind(record, fallback) {

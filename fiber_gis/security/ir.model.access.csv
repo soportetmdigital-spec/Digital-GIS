@@ -57,3 +57,9 @@ access_fiber_gis_cable_pass_review_manager,fiber.gis.cable.pass.review manager,m
 access_fiber_gis_cable_pass_review_line_manager,fiber.gis.cable.pass.review.line manager,model_fiber_gis_cable_pass_review_line,fiber_gis.group_fiber_gis_manager,1,1,1,1
 access_fiber_gis_cable_pass_review_user,fiber.gis.cable.pass.review user,model_fiber_gis_cable_pass_review,fiber_gis.group_fiber_gis_user,1,1,1,1
 access_fiber_gis_cable_pass_review_line_user,fiber.gis.cable.pass.review.line user,model_fiber_gis_cable_pass_review_line,fiber_gis.group_fiber_gis_user,1,1,1,1
+access_fiber_gis_map_icon_user,fiber.gis.map.icon user,model_fiber_gis_map_icon,fiber_gis.group_fiber_gis_user,1,0,0,0
+access_fiber_gis_map_icon_manager,fiber.gis.map.icon manager,model_fiber_gis_map_icon,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_parcel_user,fiber.gis.parcel user,model_fiber_gis_parcel,fiber_gis.group_fiber_gis_user,1,0,0,0
+access_fiber_gis_parcel_manager,fiber.gis.parcel manager,model_fiber_gis_parcel,fiber_gis.group_fiber_gis_manager,1,1,1,1
+access_fiber_gis_parcel_import_user,fiber.gis.parcel.import user,model_fiber_gis_parcel_import,fiber_gis.group_fiber_gis_user,1,0,0,0
+access_fiber_gis_parcel_import_manager,fiber.gis.parcel.import manager,model_fiber_gis_parcel_import,fiber_gis.group_fiber_gis_manager,1,1,1,1

@@ -1,7 +1,7 @@
 # Continuidad de trabajo — Fiber GIS (Odoo 19 Community)
 
-Actualizado: 2026-11-09  
-Versión de trabajo: **19.0.4.34**  
+Actualizado: 2026-11-27  
+Versión de trabajo: **19.0.4.35**  
 Módulo: `fiber_gis`  
 Manual funcional y fuente de verdad: `README.md`
 
@@ -63,11 +63,13 @@ No declarar completadas las comprobaciones que no se hayan podido ejecutar. En e
 - El tubo de una fibra («T1» y su color) solo se muestra si el cable tiene más de un tubo: usar `fiber.show_tube` en cualquier vista o HTML nuevo que muestre fibras.
 - Color por defecto de cables dibujados en el mapa según fibras de la tipología (`MAP_CABLE_COLOR_BY_FIBERS` en `models/cable.py`): 6 celeste, 12 rojo, 16 violeta, 24 marrón, 48 verde, 72 verde oscuro, 80 azul, 96 rosa, 128 naranja, 288 negro.
 - Las capas y tipos de elemento del mapa se guardan por usuario en `res.users.settings.fiber_gis_map_layers` (`models/user_settings.py`). Cualquier código que fuerce capas visibles debe ser temporal y no llamar a `scheduleLayerPreferencesSave()`; solo los check del usuario guardan.
+- La cartografía del Catastro del mapa se sirve desde Odoo en teselas (`/fiber_gis/catastro/z/x/y.png`, `models/catastro_tiles.py`); no volver a pedir el WMS desde el navegador. Los iconos de mapa pueden ser `custom_<código>` de `fiber.gis.map.icon`: cualquier vista o HTML que dibuje iconos debe contemplarlos.
+- Parcelas: el Catastro da viviendas por parcela, no personas; las personas son una estimación configurable. Las importaciones van siempre en segundo plano (un minuto por celda).
 - En el mapa se dibuja un cable cada vez. «Crear y seguir trazando» se retiró en 19.0.4.28; desde 19.0.4.31 el mapa avanza al acercar el puntero al borde mientras se traza. Si el trazado pasa sobre elementos, se pregunta por cada uno y con Sí el cable se crea en tramos con sangría en la bandeja 1 (creada si falta). No reintroducir el encadenado manual de cajas.
 
 ## Entrega de referencia
 
-El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.34.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
+El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.35.zip` y mantener `fiber_gis/` como carpeta raíz interna. `README.md` registra las versiones anteriores, la guía funcional, pruebas y el punto de retorno.
 
 ## Iteración 19.0.4.11 — bocas interactivas del rack
 
@@ -269,3 +271,11 @@ El ZIP de esta revisión debe llamarse `fiber_gis_19.0.4.34.zip` y mantener `fib
 
 - `onKeyDown` con `useExternalListener(window, "keydown", …)`: flechas y + / - con la vista previa por transformación (`beginInteractionCamera`/`previewZoomAt`) y redibujado diferido. `zoom(delta)` de los botones pasa a usar `zoomAt` en el centro.
 - Punto de retorno: `19.0.4.33`.
+
+## Iteración 19.0.4.35 — iconos propios, cartografía en el servidor y parcelas
+
+- Entorno: se creó el entorno de nube «Digital-GIS» con acceso a `ovc.catastro.meh.es` y un script que instala Odoo 19 de pruebas (no probado aún en una sesión nueva).
+- Formatos comprobados contra el Catastro real: WMS en EPSG:3857 con PNG de 512 px; WFS INSPIRE de edificios (`BU:Building`, bbox lat/lon en EPSG::4326) con `numberOfDwellings`; WFS de direcciones (`AD:Address`) cuyo `localId` termina en la referencia de 14 caracteres. Una celda de 0,004° tarda alrededor de un minuto (517 parcelas, 2.713 viviendas en la de prueba).
+- El Catastro corta a veces conexiones con varias peticiones simultáneas: por eso el límite de 3 y el reintento. La tesela que falla no se guarda y se vuelve a pedir en la siguiente vista.
+- Los cron (`ir_cron_fiber_gis_catastro_precache`, `ir_cron_fiber_gis_parcel_import`) usan `_commit_progress` de Odoo 19; en las pruebas se simula ese método porque confirma la transacción.
+- Punto de retorno: `19.0.4.34`.

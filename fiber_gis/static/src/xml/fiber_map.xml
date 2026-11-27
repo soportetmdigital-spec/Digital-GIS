@@ -20,6 +20,10 @@
                     t-on-click="toggleCableDrawing">
                     <t t-esc="state.cableDraftMode ? 'Cancelar trazado' : 'Trazar cable en el mapa'"/>
                 </button>
+                <button class="btn btn-secondary w-100 mt-2" t-att-disabled="state.parcelImportBusy" t-on-click="importParcelsInView"
+                    title="Importa en segundo plano las parcelas del Catastro de la zona visible, con sus viviendas">
+                    Parcelas del Catastro de esta vista
+                </button>
                 <div class="o_fiber_gis_search">
                     <label class="o_fiber_gis_label">Buscar</label>
                     <div class="o_fiber_gis_search_box">
@@ -369,16 +373,17 @@
                     t-on-contextmenu="onMapContextMenu"
                     t-on-wheel.prevent="onWheel">
                     <g t-ref="mapScene" class="o_fiber_gis_scene">
-                    <t t-if="catastroWebMap">
-                        <image t-ref="catastroImage" class="o_fiber_gis_catastro o_fiber_gis_catastro_web"
-                            t-att-href="catastroWebMap.url"
-                            t-att-x="catastroWebMap.x"
-                            t-att-y="catastroWebMap.y"
-                            t-att-width="catastroWebMap.width"
-                            t-att-height="catastroWebMap.height"
-                            decoding="async"
-                            preserveAspectRatio="none"/>
-                    </t>
+                    <t t-set="catastroLayers" t-value="catastroTileLayers"/>
+                    <g class="o_fiber_gis_catastro_tiles">
+                        <t t-foreach="catastroLayers.backdrop" t-as="tile" t-key="'old-' + tile.key">
+                            <image class="o_fiber_gis_catastro" t-att-href="tile.href" t-att-x="tile.x" t-att-y="tile.y"
+                                t-att-width="tile.size" t-att-height="tile.size" preserveAspectRatio="none"/>
+                        </t>
+                        <t t-foreach="catastroLayers.tiles" t-as="tile" t-key="tile.key">
+                            <image class="o_fiber_gis_catastro" t-att-href="tile.href" t-att-x="tile.x" t-att-y="tile.y"
+                                t-att-width="tile.size" t-att-height="tile.size" decoding="async" preserveAspectRatio="none"/>
+                        </t>
+                    </g>
                     <g class="o_fiber_gis_cables">
                         <t t-foreach="visibleCables" t-as="cable" t-key="cable.id">
                             <t t-set="cableRender" t-value="cableRenderData(cable)"/>
@@ -435,6 +440,10 @@
                                 <circle t-elif="mapIconKind(site, 'square') === 'circle'" r="10"
                                     t-att-fill="siteColor(site)"
                                     t-att-class="state.selectedSiteId === site.id ? 'is-selected' : ''"/>
+                                <t t-elif="customIconUrl(mapIconKind(site, 'square'))">
+                                    <circle t-if="state.selectedSiteId === site.id" r="17" class="o_fiber_gis_icon_ring"/>
+                                    <image t-att-href="customIconUrl(mapIconKind(site, 'square'))" x="-14" y="-14" width="28" height="28" preserveAspectRatio="xMidYMid meet"/>
+                                </t>
                                 <path t-else="" t-att-d="mapIconPath(mapIconKind(site, 'square'))" fill-rule="evenodd"
                                     t-att-fill="siteColor(site)"
                                     t-att-class="state.selectedSiteId === site.id ? 'is-selected' : ''"/>
@@ -450,6 +459,10 @@
                                 <circle t-if="!showDetailedNodeIcons" r="6" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
                                 <circle t-elif="mapIconKind(node, 'circle') === 'circle'" r="8" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
                                 <rect t-elif="mapIconKind(node, 'circle') === 'square'" x="-8" y="-8" width="16" height="16" rx="3" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
+                                <t t-elif="customIconUrl(mapIconKind(node, 'circle'))">
+                                    <circle t-if="state.selectedNodeId === node.id" r="15" class="o_fiber_gis_icon_ring"/>
+                                    <image t-att-href="customIconUrl(mapIconKind(node, 'circle'))" x="-12" y="-12" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>
+                                </t>
                                 <path t-else="" t-att-d="mapIconPath(mapIconKind(node, 'circle'), 8)" fill-rule="evenodd" t-att-fill="nodeColor(node)" t-att-class="state.selectedNodeId === node.id ? 'is-selected' : ''"/>
                                 <text t-if="(showNodeLabels || state.selectedNodeId === node.id) &amp;&amp; (node.name || node.code)" x="12" y="4" t-esc="node.name || node.code"/>
                             </g>

@@ -59,7 +59,7 @@ class FiberGisNodeCategory(models.Model):
     @api.model
     def _selection_map_icon(self):
         """Devuelve las opciones de icono disponibles para los modelos de elemento."""
-        return self.env["fiber.gis.node"]._fields["map_icon"].selection
+        return self.env["fiber.gis.node"]._selection_map_icon()
 
     @api.model
     def _initial_style(self, kind):

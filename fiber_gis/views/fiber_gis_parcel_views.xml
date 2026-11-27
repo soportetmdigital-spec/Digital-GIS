@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiber_gis_parcel_list" model="ir.ui.view">
+        <field name="name">fiber.gis.parcel.list</field>
+        <field name="model">fiber.gis.parcel</field>
+        <field name="arch" type="xml">
+            <list string="Parcelas catastrales" create="0" edit="0">
+                <field name="name"/>
+                <field name="address"/>
+                <field name="postcode"/>
+                <field name="municipality" optional="show"/>
+                <field name="current_use"/>
+                <field name="dwellings" sum="Viviendas"/>
+                <field name="building_units" sum="Inmuebles" optional="show"/>
+                <field name="estimated_people" sum="Personas estimadas"/>
+                <field name="floor_area" optional="hide"/>
+                <field name="last_update" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_parcel_form" model="ir.ui.view">
+        <field name="name">fiber.gis.parcel.form</field>
+        <field name="model">fiber.gis.parcel</field>
+        <field name="arch" type="xml">
+            <form string="Parcela catastral" create="0">
+                <header>
+                    <button name="action_open_catastro" type="object" string="Ver en la Sede del Catastro" class="btn-secondary" invisible="not catastro_url"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name"/></h1>
+                        <field name="address"/>
+                    </div>
+                    <group>
+                        <group string="Ubicación">
+                            <field name="postcode"/>
+                            <field name="municipality"/>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                        </group>
+                        <group string="Datos del Catastro">
+                            <field name="current_use"/>
+                            <field name="dwellings"/>
+                            <field name="building_units"/>
+                            <field name="floor_area"/>
+                            <field name="estimated_people"/>
+                            <field name="last_update"/>
+                            <field name="catastro_url" invisible="1"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        Las personas son una estimación (viviendas × tamaño medio del hogar de Ajustes): el Catastro no publica
+                        cuántas personas viven en cada parcela.
+                    </p>
+                    <field name="deployment_plan_ids" widget="many2many_tags"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_parcel_search" model="ir.ui.view">
+        <field name="name">fiber.gis.parcel.search</field>
+        <field name="model">fiber.gis.parcel</field>
+        <field name="arch" type="xml">
+            <search string="Parcelas catastrales">
+                <field name="name"/>
+                <field name="address"/>
+                <field name="postcode"/>
+                <field name="municipality"/>
+                <field name="deployment_plan_ids"/>
+                <filter name="residential" string="Residenciales" domain="[('current_use', '=', '1_residential')]"/>
+                <filter name="with_dwellings" string="Con viviendas" domain="[('dwellings', '&gt;', 0)]"/>
+                <separator/>
+                <filter name="group_postcode" string="Código postal" context="{'group_by': 'postcode'}"/>
+                <filter name="group_municipality" string="Municipio" context="{'group_by': 'municipality'}"/>
+                <filter name="group_use" string="Uso principal" context="{'group_by': 'current_use'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_parcel" model="ir.actions.act_window">
+        <field name="name">Parcelas catastrales</field>
+        <field name="res_model">fiber.gis.parcel</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_with_dwellings': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavía no hay parcelas importadas</p>
+            <p>Impórtalas desde el mapa («Parcelas del Catastro de esta vista») o desde un plan de despliegue.</p>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_parcel_import_list" model="ir.ui.view">
+        <field name="name">fiber.gis.parcel.import.list</field>
+        <field name="model">fiber.gis.parcel.import</field>
+        <field name="arch" type="xml">
+            <list string="Importaciones de parcelas" create="0" edit="0">
+                <field name="create_date" string="Solicitada"/>
+                <field name="name"/>
+                <field name="deployment_plan_id" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state in ('pending', 'running')" decoration-success="state == 'done'" decoration-warning="state == 'error'"/>
+                <field name="progress" widget="progressbar"/>
+                <field name="parcels_found"/>
+                <field name="dwellings_found"/>
+                <field name="create_uid" string="Usuario" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiber_gis_parcel_import_form" model="ir.ui.view">
+        <field name="name">fiber.gis.parcel.import.form</field>
+        <field name="model">fiber.gis.parcel.import</field>
+        <field name="arch" type="xml">
+            <form string="Importación de parcelas" create="0" edit="0">
+                <header>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="deployment_plan_id"/>
+                            <field name="progress" widget="progressbar"/>
+                            <field name="cells_done"/>
+                            <field name="cells_total"/>
+                        </group>
+                        <group>
+                            <field name="parcels_found"/>
+                            <field name="dwellings_found"/>
+                            <field name="west"/>
+                            <field name="south"/>
+                            <field name="east"/>
+                            <field name="north"/>
+                        </group>
+                    </group>
+                    <field name="message" invisible="not message"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fiber_gis_parcel_import" model="ir.actions.act_window">
+        <field name="name">Importaciones de parcelas</field>
+        <field name="res_model">fiber.gis.parcel.import</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_fiber_gis_parcel" name="Parcelas catastrales" parent="menu_fiber_gis_inventory"
+        action="action_fiber_gis_parcel" sequence="80"/>
+    <menuitem id="menu_fiber_gis_parcel_import" name="Importaciones de parcelas" parent="menu_fiber_gis_inventory"
+        action="action_fiber_gis_parcel_import" sequence="81"/>
+
+    <record id="ir_cron_fiber_gis_parcel_import" model="ir.cron">
+        <field name="name">Fiber GIS: importar parcelas del Catastro</field>
+        <field name="model_id" ref="model_fiber_gis_parcel_import"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_run_imports()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

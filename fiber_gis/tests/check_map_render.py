@@ -62,6 +62,16 @@ class MapRenderChecks(unittest.TestCase):
         self.assertIn("ev.ctrlKey || ev.metaKey || ev.altKey", body)
         self.assertIn("this.scheduleInteractionCameraCommit(KEYBOARD_COMMIT_IDLE_MS)", body)
 
+    def test_catastro_map_comes_from_server_tiles(self):
+        # El navegador ya no pide imágenes al Catastro: usa teselas fijas que Odoo guarda en el servidor.
+        self.assertNotIn("ovc.catastro.meh.es", JS)
+        self.assertIn('const CATASTRO_TILE_URL = "/fiber_gis/catastro";', JS)
+        self.assertIn("catastroTileLayers", XML)
+
+    def test_uploaded_icons_are_drawn_as_images(self):
+        self.assertIn('"get_map_icons"', JS)
+        self.assertIn("customIconUrl(mapIconKind(node, 'circle'))", XML)
+
 
 if __name__ == "__main__":
     unittest.main()
